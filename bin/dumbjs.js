@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+var es = require('event-stream')
+var dumbjs = require('../index')
+var fs = require('fs')
+
+var inpt = process.stdin
+if (process.argv.length > 2)
+    inpt = fs.createReadStream(process.argv[2])
+
+var outpt = process.stdout
+if (process.argv.length > 3)
+    outpt = fs.createWriteStream(process.argv[3])
+
+inpt.pipe(es.wait(function(err, js) {
+    if (err) {
+        console.error(err)
+        return
+    }
+    process.stdout.write(dumbjs(js) + '\n')
+}))

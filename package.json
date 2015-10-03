@@ -1,0 +1,23 @@
+{
+  "name": "dumbjs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --compilers coffee:coffee-script/register"
+  },
+  "author": "",
+  "license": "WTFPL",
+  "dependencies": {
+    "browser-pack": "^5.0.1",
+    "coffee-script": "^1.10.0",
+    "escodegen": "^1.6.1",
+    "escope": "^3.2.0",
+    "esprima": "^2.0.0",
+    "estraverse": "^1.9.1",
+    "module-deps": "^3.9.1"
+  },
+  "devDependencies": {
+    "mocha": "^2.3.3"
+  }
+}
