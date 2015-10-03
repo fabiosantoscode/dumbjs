@@ -1,5 +1,7 @@
 # dumbjs
 
+WIP: Parts of this repo do some sort of function, but mostly they do not work. This readme is about features I will implement, not the ones that exist.
+
 A first pass for js2cpp. Uses browserify's dependencies to flatten the dependency tree into a single file, then makes the file not use closures at all by implementing closures in pure javascript.
 
 This was created because I found it too hard to implement closures in js2cpp, then it became clear that it would be much better to implement them at the javascript level, and make the current js2cpp just work on a simple subset of javascript.
