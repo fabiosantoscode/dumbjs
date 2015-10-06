@@ -1,6 +1,8 @@
 # dumbjs
 
-WIP: Parts of this repo do some sort of function, but mostly they do not work. This readme is about features I will implement, not the ones that exist.
+[![Build Status](https://travis-ci.org/fabiosantoscode/dumbjs.svg?branch=master)](https://travis-ci.org/fabiosantoscode/dumbjs)
+
+WIP: Parts of this repo don't work properly yet. If something is crashing dumbjs and it doesn't seem like an intentional dumbjs-originated limitation, file an issue!
 
 A first pass for js2cpp. Uses browserify's dependencies to flatten the dependency tree into a single file, then makes the file not use closures at all by implementing closures in pure javascript.
 
