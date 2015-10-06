@@ -15,7 +15,8 @@
     "escope": "^3.2.0",
     "esprima": "^2.0.0",
     "estraverse": "^1.9.1",
-    "module-deps": "^3.9.1"
+    "module-deps": "^3.9.1",
+    "underscore": "^1.8.3"
   },
   "devDependencies": {
     "mocha": "^2.3.3"

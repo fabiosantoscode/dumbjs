@@ -1,5 +1,5 @@
 
-function xfoo() { return 6; }
+function xfoo() { return 'xfoo'; }
 
 module.exports = xfoo
 

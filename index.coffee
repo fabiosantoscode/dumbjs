@@ -1,11 +1,16 @@
 fs = require 'fs'
 assert = require 'assert'
+escope = require 'escope'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 estraverse = require 'estraverse'
 child_process = require 'child_process'
 
-dumbifyAST = (ast) ->
+topmost = require './lib/topmost'
+
+dumbifyAST = (ast, opt = {}) ->
+  if opt.topmost isnt false
+    topmost ast  # mutate ast
   return estraverse.replace ast, enter: (node) ->
     if node.type is 'ExpressionStatement'
       if node.expression.type is 'Literal'
@@ -54,9 +59,11 @@ flatten = (js) ->
     throw ret.error || new Error(ret.stderr+'')
   return ret.stdout+''
 
-dumbify = (js) ->
+dumbify = (js, opt = {}) ->
   js = flatten js
-  escodegen.generate dumbifyAST esprima.parse(js, acornOpts)
+  ast = esprima.parse(js, acornOpts)
+  ast = dumbifyAST ast, opt
+  return escodegen.generate ast
 
 module.exports = dumbify
 module.exports.dumbify = dumbify
