@@ -2,6 +2,7 @@ fs = require 'fs'
 ok = require 'assert'
 dumbjs = require '..'
 topmost = require '../lib/topmost'
+declosurify = require '../lib/declosurify'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
@@ -80,7 +81,35 @@ describe 'dumbjs', ->
       x(_flatten_0);
     '
 
-  it 'knows to rename functions when shoving them up'
+  it 'creates objects for closures, turns every reference into an object access', () ->
+    code1 = esprima.parse '
+      function x() {
+        var foo = 5,
+            bar = 6;
+        function y() {
+          return foo + bar;
+        }
+        foo = 6;
+        return y;
+      }
+    '
+
+    declosurify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x() {
+        var _closure_0 = {};
+        _closure_0.foo = 5;
+        _closure_0.bar = 6;
+        function y() {
+          var _closure_1 = {};
+          return _closure_0.foo + _closure_0.bar;
+        }
+        _closure_0.foo = 6;
+        return y;
+      }
+    '
 
   it 'screams at you for using globals'
 
