@@ -3,6 +3,7 @@ ok = require 'assert'
 dumbjs = require '..'
 topmost = require '../lib/topmost'
 declosurify = require '../lib/declosurify'
+bindify = require '../lib/bindify.coffee'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
@@ -108,6 +109,27 @@ describe 'dumbjs', ->
         }
         _closure_0.foo = 6;
         return y;
+      }
+    '
+
+  it 'binds _flatten_* function to their current _closure_*', () ->
+    code1 = esprima.parse '
+      function _flatten_0() { }
+      function x() {
+        var _closure_0;
+        return _flatten_0;
+      }
+    '
+
+    bindify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function _flatten_0() {
+      }
+      function x() {
+        var _closure_0;
+        return BIND(_flatten_0, _closure_0);
       }
     '
 
