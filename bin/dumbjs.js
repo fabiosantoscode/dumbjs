@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+require('coffee-script/register')
+
 var es = require('event-stream')
 var dumbjs = require('../index')
 var fs = require('fs')

@@ -7,8 +7,14 @@ estraverse = require 'estraverse'
 child_process = require 'child_process'
 
 topmost = require './lib/topmost'
+declosurify = require './lib/declosurify'
+bindify = require './lib/bindify'
 
 dumbifyAST = (ast, opt = {}) ->
+  if opt.declosurify isnt false
+    declosurify ast  # mutate ast
+  if opt.bindify isnt false
+    bindify ast  # mutate ast
   if opt.topmost isnt false
     topmost ast  # mutate ast
   return estraverse.replace ast, enter: (node) ->
