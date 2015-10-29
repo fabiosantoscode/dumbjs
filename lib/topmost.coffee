@@ -28,7 +28,8 @@ module.exports = (programNode) ->
           newName = "_flatten_#{counter++}"
           changeNames.push({ id: node.id, name: newName })
           for ref in containingReference.references
-            changeNames.push({ id: ref.identifier, name: newName })
+            if ref.identifier.name == node.id.name
+              changeNames.push({ id: ref.identifier, name: newName })
           insertFuncs.push({ insert: node, into: currentIdx })
         if node.type is 'FunctionExpression'
           variable = "_flatten_#{counter++}"

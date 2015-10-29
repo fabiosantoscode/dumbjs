@@ -82,6 +82,28 @@ describe 'dumbjs', ->
       x(_flatten_0);
     '
 
+  it 'regression: doesn\'t mix flatten with _closure', () ->
+    code1 = esprima.parse '
+      function lel1() {
+        var x = 60;
+        function lel2() {
+          return x;
+        }
+        return lel2
+      }
+    '
+    topmost code1
+    code1 = escodegen.generate code1
+    jseq(code1, '
+      function _flatten_0() {
+        return x;
+      }
+      function lel1() {
+        var x = 60;
+        return _flatten_0;
+      }
+    ')
+
   it 'creates objects for closures, turns every reference into an object access', () ->
     code1 = esprima.parse '
       function x() {
