@@ -15,6 +15,7 @@
     "escope": "^3.2.0",
     "esprima": "^2.0.0",
     "estraverse": "^1.9.1",
+    "event-stream": "^3.3.2",
     "module-deps": "^3.9.1",
     "tern": "^0.15.0",
     "underscore": "^1.8.3"
