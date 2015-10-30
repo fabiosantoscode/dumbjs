@@ -1,33 +1,37 @@
 assert = require 'assert'
 escope = require 'escope'
 estraverse = require 'estraverse'
-tern = require 'tern/lib/infer'
 
-module.exports = (programNode, rest...) ->
-  tern.withContext(new tern.Context(), () -> _bindify(programNode))
+module.exports = (programNode, { bindFunctionName = 'BIND' } = {}) ->
+  toWrap = []  # Array of { func, closureName }
+  scopeMan = escope.analyze programNode
 
-_bindify = (programNode, { bindFunctionName = 'BIND' } = {}) ->
-  tern.analyze(programNode)
+  currentScope = scopeMan.acquire programNode
 
-  closure_stack = []
-  to_wrap = []  # Array of { func, closureName }
-
-  estraverse.replace programNode,
-    enter: (node) ->
-      if node.type in ['FunctionStatement', 'FunctionDeclaration']
-        closure_stack.push tern.scopeAt(node)
-      return
-    leave: (node, parent) ->
-      if node.type in ['FunctionStatement', 'FunctionDeclaration']
-        closure_stack.pop tern.scopeAt(node)
-        return
+  estraverse.traverse(programNode, {
+    enter: (node, parent) ->
+      if node.type in ['FunctionExpression', 'FunctionDeclaration']
+        currentScope = scopeMan.acquire node
 
       if node.type in ['Identifier'] and
-          /^_flatten_/.test node.name
-        variables = Object.keys(closure_stack[closure_stack.length - 1].props)
-        closure = variables.filter((p) -> /^_closure_/.test p)[0]
-        if closure
-          return call(bindFunctionName, [node, { type: 'Identifier', name: closure }])
+          /^_flatten_/.test(node.name) and
+          parent.type isnt 'VariableDeclarator' and
+          parent.type isnt 'FunctionDeclaration' and
+          parent.type isnt 'FunctionExpression'
+        closure = currentScope.variables.filter((p) -> /^_closure_/.test p.name)[0]
+        if closure and /^_closure_/.test closure.name
+          toWrap.push({ func: node, closureName: closure.name })
+    leave: (node) ->
+      if node.type in ['FunctionExpression', 'FunctionDeclaration']
+        currentScope = currentScope.upper
+  })
+
+  estraverse.replace(programNode, {
+    leave: (node) ->
+      for { func, closureName } in toWrap
+        if func is node
+          return call(bindFunctionName, [func, { type: 'Identifier', name: closureName }])
+  })
 
 call = (name, args) ->
   type: 'CallExpression',

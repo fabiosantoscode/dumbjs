@@ -10,13 +10,23 @@ topmost = require './lib/topmost'
 declosurify = require './lib/declosurify'
 bindify = require './lib/bindify'
 
+clean_ast = (ast) ->
+  estraverse.traverse(ast, {
+    leave: (node) ->
+      delete node.scope
+      delete node.objType
+  })
+
 dumbifyAST = (ast, opt = {}) ->
   if opt.declosurify isnt false
-    declosurify ast  # mutate ast
+    declosurify ast
+    clean_ast ast
+  if opt.topmost isnt false
+    topmost ast
+    clean_ast ast
   if opt.bindify isnt false
     bindify ast  # mutate ast
-  if opt.topmost isnt false
-    topmost ast  # mutate ast
+    clean_ast ast
   return estraverse.replace ast, enter: (node) ->
     if node.type is 'ExpressionStatement'
       if node.expression.type is 'Literal'

@@ -4,6 +4,7 @@ dumbjs = require '..'
 topmost = require '../lib/topmost'
 declosurify = require '../lib/declosurify'
 bindify = require '../lib/bindify.coffee'
+bindifyPrelude = require '../lib/bindify-prelude.coffee'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
@@ -25,7 +26,7 @@ describe 'dumbjs', ->
     compileAndCheck '
       function lel () { }',
       'var lel = function () { };',
-      { topmost: false }
+      { topmost: false, declosurify: false }
 
   it 'removes "use strict" because it\'s always strict', ->
     compileAndCheck '
@@ -35,7 +36,7 @@ describe 'dumbjs', ->
       }());
       ',
       '(function () { }());',
-      { topmost: false }
+      { topmost: false, declosurify: false }
 
   it 'resolves require() calls with module-deps and browser-pack so as to generate a single output file', () ->
     code = dumbjs 'require("./test/some.js")'  # actual file in this directory
@@ -136,7 +137,7 @@ describe 'dumbjs', ->
 
   it 'binds _flatten_* function to their current _closure_*', () ->
     code1 = esprima.parse '
-      function _flatten_0() { }
+      function _flatten_0() { return _closure_0.x; }
       function x() {
         var _closure_0;
         return _flatten_0;
@@ -148,6 +149,7 @@ describe 'dumbjs', ->
 
     jseq code1, '
       function _flatten_0() {
+        return _closure_0.x;
       }
       function x() {
         var _closure_0;
@@ -157,6 +159,8 @@ describe 'dumbjs', ->
 
   it 'screams at you for using globals'
 
+  it 'screams at you for using eval, arguments, this, reserved names (_closure_, flatten_)'
+
   it 'doesnt let you subscript stuff with anything other than numbers or letters (IE: not strings, not expressions)'
 
   it 'puts all program code in the bottom of everything into a function called "main"'
@@ -164,7 +168,7 @@ describe 'dumbjs', ->
 describe 'functional tests', () ->
   it 'its code runs on node', () ->
     hi = null
-    eval dumbjs '(function(){ hi = "hi" }())'
+    eval(bindifyPrelude + dumbjs '(function(){ hi = "hi" }())')
     ok.equal(hi, 'hi')
 
   it 'using closures works'
