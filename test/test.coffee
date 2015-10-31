@@ -138,6 +138,9 @@ describe 'dumbjs', ->
   it 'puts parameters and the function name in its closure object as well', () ->
     code1 = esprima.parse '
       function x(a) {
+        return function y(z) {
+          return x(a)(y)(z);
+        }
       }
     '
 
@@ -149,6 +152,12 @@ describe 'dumbjs', ->
         var _closure_0 = {};
         _closure_0.x = x;
         _closure_0.a = a;
+        return function y(z) {
+          var _closure_1 = {};
+          _closure_1.y = y;
+          _closure_1.z = z;
+          return _closure_0.x(_closure_0.a)(_closure_1.y)(_closure_1.z);
+        };
       }
     '
 
