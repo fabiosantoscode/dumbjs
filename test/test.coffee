@@ -83,7 +83,7 @@ describe 'dumbjs', ->
       x(_flatten_0);
     '
 
-  it 'regression: doesn\'t mix flatten with _closure', () ->
+  it 'regression: doesnt mix flatten with _closure', () ->
     code1 = esprima.parse '
       function lel1() {
         var x = 60;
@@ -118,7 +118,7 @@ describe 'dumbjs', ->
       }
     '
 
-    declosurify code1
+    declosurify code1, { params: false, fname: false }
     code1 = escodegen.generate code1
 
     jseq code1, '
@@ -132,6 +132,23 @@ describe 'dumbjs', ->
         }
         _closure_0.foo = 6;
         return y;
+      }
+    '
+
+  it 'puts parameters and the function name in its closure object as well', () ->
+    code1 = esprima.parse '
+      function x(a) {
+      }
+    '
+
+    declosurify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x(a) {
+        var _closure_0 = {};
+        _closure_0.x = x;
+        _closure_0.a = a;
       }
     '
 
@@ -171,19 +188,32 @@ describe 'functional tests', () ->
     eval(bindifyPrelude + dumbjs '(function(){ hi = "hi" }())')
     ok.equal(hi, 'hi')
 
+  it 'passing functions works', () ->
+    arr = []
+    eval dumbjs '''
+      function pushr(x) {
+        arr.push(x())
+      }
+
+      pushr(function(){ return 1 })
+      pushr(function(){ return 2 })
+    '''
+
+    ok.deepEqual(arr, [1,2])
+
+  it 'using recursion works', () ->
+    fact = eval dumbjs '''
+      (function factorial(n) {
+        if (n < 1) {
+          return 1;
+        }
+        return n * factorial(n - 1)
+      }(4));
+    '''
+
+    ok.equal(fact, 24)
+
   it 'using closures works'
-    # arr = []
-    # eval dumbjs '''
-    #   function pushr(x) {
-    #     arr.push(x())
-    #   }
-
-    #   pushr(function(){ return 1 })
-    #   pushr(function(){ return 2 })
-    # '''
-
-    # ok.deepEqual(arr, [1,2])
-
     # arr = []
 
     # eval dumbjs '''

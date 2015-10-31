@@ -6,10 +6,10 @@ tern = require 'tern/lib/infer'
 # Every function that has an execution environment will save their shit in a _closure
 # variable.
 
-module.exports = (programNode) ->
-  tern.withContext(new tern.Context(), () -> _declosurify(programNode))
+module.exports = (args...) ->
+  tern.withContext(new tern.Context(), () -> _declosurify(args...))
 
-_declosurify = (programNode) ->
+_declosurify = (programNode, opt = {}) ->
   tern.analyze(programNode)
 
   scope_stack = []  # From outermost to innermost, the lexical scopes
@@ -21,7 +21,8 @@ _declosurify = (programNode) ->
     assert typeof name is 'string'
     i = scope_stack.length
     while i--
-      if scope_stack[i].props[name]
+      { props, fnType } = scope_stack[i]
+      if props[name] or (name in fnType.argNames) or (fnType.name is name)
         return scope_stack[i]
 
   to_unshift = []  # We keep notes of { func, scopeName } so we add var _closure_X = {} later.
@@ -47,6 +48,17 @@ _declosurify = (programNode) ->
       if node.type is 'BlockStatement'
         node.closure = null
         bod = []
+        if parent.type in ['FunctionDeclaration', 'FunctionExpression']
+          if parent.id and opt.fname != false
+            bod.push assignment(
+              member_expr(scope_with(parent.id.name).name, parent.id.name),
+              parent.id)
+
+          if opt.params != false
+            for param in parent.params
+              bod.push assignment(
+                member_expr(scope_with(param.name).name, param.name),
+                param)
         for _node in node.body
           if _node.type is 'VariableDeclaration'
             for decl in _node.declarations
