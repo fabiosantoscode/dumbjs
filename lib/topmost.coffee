@@ -12,9 +12,17 @@ module.exports = (programNode) ->
   changeNames = []
   currentIdx = 0
   counter = 0
+  scopeMan = escope.analyze programNode
+  currentScope = scopeMan.acquire(programNode)
 
   estraverse.traverse programNode,
+    enter: (node) ->
+      if /Function/.test node.type
+        currentScope = scopeMan.acquire(node)
     leave: (node, parent) ->
+      if /Function/.test node.type
+        currentScope = currentScope.upper
+
       if parent?.type is 'Program'
         currentIdx = parent.body.indexOf node
         assert currentIdx > -1
@@ -22,18 +30,23 @@ module.exports = (programNode) ->
       # Shove them upwards!
       if parent?.type isnt 'Program'
         if node.type is 'FunctionDeclaration'
-          scopeMan = escope.analyze programNode
-          containingReference = scopeMan.acquire(node).upper
-          assert containingReference
           newName = "_flatten_#{counter++}"
           changeNames.push({ id: node.id, name: newName })
-          for ref in containingReference.references
+          for ref in currentScope.references
             if ref.identifier.name == node.id.name
               changeNames.push({ id: ref.identifier, name: newName })
           insertFuncs.push({ insert: node, into: currentIdx })
         if node.type is 'FunctionExpression'
           variable = "_flatten_#{counter++}"
           insertVars.push({ insert: node, into: currentIdx, variable: variable })
+
+        if /Function/.test(node.type) and node.id
+          functionName = node.id
+          scopeInsideFunction = scopeMan.acquire(node)
+          for ref in scopeInsideFunction.references
+            if ref.resolved?.defs[0]?.type is 'FunctionName' and
+                ref.resolved?.defs[0]?.node.id is functionName
+              changeNames.push({ id: ref.identifier, name: newName })
 
   estraverse.replace programNode,
     leave: (node, parent) ->

@@ -9,6 +9,8 @@ child_process = require 'child_process'
 topmost = require './lib/topmost'
 declosurify = require './lib/declosurify'
 bindify = require './lib/bindify'
+mainify = require './lib/mainify'
+ownfunction = require './lib/ownfunction'
 
 clean_ast = (ast) ->
   estraverse.traverse(ast, {
@@ -18,6 +20,12 @@ clean_ast = (ast) ->
   })
 
 dumbifyAST = (ast, opt = {}) ->
+  if opt.mainify isnt false
+    mainify ast
+    clean_ast ast
+  if opt.declosurify isnt false  # this one is not really a pass, it's a pre-declosurify operation
+    ownfunction ast
+    clean_ast ast
   if opt.declosurify isnt false
     declosurify ast
     clean_ast ast

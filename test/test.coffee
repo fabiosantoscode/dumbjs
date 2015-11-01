@@ -3,6 +3,7 @@ ok = require 'assert'
 dumbjs = require '..'
 topmost = require '../lib/topmost'
 declosurify = require '../lib/declosurify'
+ownfunction = require '../lib/ownfunction'
 bindify = require '../lib/bindify.coffee'
 bindifyPrelude = require '../lib/bindify-prelude.coffee'
 esprima = require 'esprima'
@@ -26,7 +27,7 @@ describe 'dumbjs', ->
     compileAndCheck '
       function lel () { }',
       'var lel = function () { };',
-      { topmost: false, declosurify: false }
+      { topmost: false, declosurify: false, mainify: false, }
 
   it 'removes "use strict" because it\'s always strict', ->
     compileAndCheck '
@@ -36,7 +37,7 @@ describe 'dumbjs', ->
       }());
       ',
       '(function () { }());',
-      { topmost: false, declosurify: false }
+      { topmost: false, declosurify: false, mainify: false, }
 
   it 'resolves require() calls with module-deps and browser-pack so as to generate a single output file', () ->
     code = dumbjs 'require("./test/some.js")'  # actual file in this directory
@@ -83,6 +84,26 @@ describe 'dumbjs', ->
       x(_flatten_0);
     '
 
+  it 'renames not only references to functions, but references to the current function, lexical style', () ->
+    code1 = esprima.parse '
+      function x() {
+        function y() {
+          return y();
+        }
+      }
+    '
+
+    topmost code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function _flatten_0() {
+        return _flatten_0();
+      }
+      function x() {
+      }
+    '
+
   it 'regression: doesnt mix flatten with _closure', () ->
     code1 = esprima.parse '
       function lel1() {
@@ -118,7 +139,7 @@ describe 'dumbjs', ->
       }
     '
 
-    declosurify code1, { params: false, fname: false }
+    declosurify code1, { params: false, fname: false, recursiveClosures: false }
     code1 = escodegen.generate code1
 
     jseq code1, '
@@ -131,35 +152,186 @@ describe 'dumbjs', ->
           return _closure_0.foo + _closure_0.bar;
         }
         _closure_0.foo = 6;
-        return y;
+        return _closure_0.y;
+      }
+    '
+
+  it 'puts accesses to own function name in the outside closure, in a variable named _ownfunction_*', () ->
+    code1 = esprima.parse '
+      function x() {
+        function y() {
+          return y()
+        }
+        foo(function zed() {
+          return zed()
+        });
+        function immune1() {
+          
+        }
+        foo(function immune2() {
+          
+        });
+      }
+    '
+
+    ownfunction code1
+    code1 = escodegen.generate code1
+
+    jseq(code1, '
+      function x() {
+        var _ownfunction_0 = y;
+        function y() {
+          return _ownfunction_0();
+        }
+        var _ownfunction_1 = function zed() {
+          return _ownfunction_1();
+        };
+        foo(_ownfunction_1);
+        function immune1() {
+          
+        }
+        foo(function immune2() {
+          
+        });
+      }
+    ')
+
+  it 'can also turn function decls (IE: not variable decls) into object assignments'
+
+  it 'makes non-top functions take a "_closure" parameter which is the upper closure', () ->
+    code1 = esprima.parse '
+      function x() {
+        var foo = 5;
+        function y() {
+          var kek = 6;
+          return foo + kek;
+        }
+      }
+    '
+
+    declosurify code1, { params: false, fname: false }
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x() {
+        var _closure_0 = {};
+        _closure_0.foo = 5;
+        function y(_closure) {
+          var _closure_1 = {};
+          _closure_1._closure_0 = _closure;
+          _closure_1.kek = 6;
+          return _closure.foo + _closure_1.kek;
+        }
+      }
+    '
+
+  it 'Assigns closures above it to its own closure', () ->
+    code1 = esprima.parse '
+      function x() {
+        return function y() {
+        }
+      }
+    '
+
+    declosurify code1, { fname: false, params: false }
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x() {
+        var _closure_0 = {};
+        return function y(_closure) {
+          var _closure_1 = {};
+          _closure_1._closure_0 = _closure;
+        };
+      }
+    '
+
+  it 'deeply assigns closures above it to its own closure', () ->
+    code1 = esprima.parse '
+      function x() {
+        return function y() {
+          return function z() {
+            return function g() {
+              
+            }
+          }
+        }
+      }
+    '
+
+    declosurify code1, { fname: false, params: false }
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x() {
+        var _closure_0 = {};
+        return function y(_closure) {
+          var _closure_1 = {};
+          _closure_1._closure_0 = _closure;
+          return function z(_closure) {
+            var _closure_2 = {};
+            _closure_2._closure_1 = _closure;
+            _closure_2._closure_0 = _closure._closure_0;
+            return function g(_closure) {
+              var _closure_3 = {};
+              _closure_3._closure_2 = _closure;
+              _closure_3._closure_1 = _closure._closure_1;
+              _closure_3._closure_0 = _closure._closure_0;
+            };
+          };
+        };
       }
     '
 
   it 'puts parameters and the function name in its closure object as well', () ->
     code1 = esprima.parse '
       function x(a) {
-        return function y(z) {
-          return x(a)(y)(z);
+        function y(z) {
+          return a(y)(z);
         }
       }
     '
 
-    declosurify code1
+    declosurify code1, { recursiveClosures: false }
     code1 = escodegen.generate code1
 
     jseq code1, '
       function x(a) {
         var _closure_0 = {};
-        _closure_0.x = x;
         _closure_0.a = a;
-        return function y(z) {
+        _closure_0.y = y;
+        function y(z) {
           var _closure_1 = {};
-          _closure_1.y = y;
           _closure_1.z = z;
-          return _closure_0.x(_closure_0.a)(_closure_1.y)(_closure_1.z);
-        };
+          return _closure_0.a(_closure_0.y)(_closure_1.z);
+        }
       }
     '
+
+  it 'regression: declarations inside for loops', () ->
+    code1 = esprima.parse '
+      function x() {
+        for (var y = 0; i < 10; i++) {
+        }
+        for (var z, t = 6; i < 10; i++) {
+        }
+      }
+    '
+    declosurify code1, { fname: false, params: false, }
+    code1 = escodegen.generate code1
+    jseq(code1, '
+      function x() {
+        var _closure_0 = {};
+        _closure_0.y = 0;
+        for (; i < 10; i++) {
+        }
+        _closure_0.z = undefined;
+        _closure_0.t = 6;
+        for (; i < 10; i++) {
+        }
+      }
+    ')
+
 
   it 'binds _flatten_* function to their current _closure_*', () ->
     code1 = esprima.parse '
@@ -185,7 +357,7 @@ describe 'dumbjs', ->
 
   it 'screams at you for using globals'
 
-  it 'screams at you for using eval, arguments, this, reserved names (_closure_, flatten_)'
+  it 'screams at you for using eval, arguments, this, reserved names (_closure_, _closure, _flatten_, _ownfunction_)'
 
   it 'doesnt let you subscript stuff with anything other than numbers or letters (IE: not strings, not expressions)'
 
@@ -194,49 +366,50 @@ describe 'dumbjs', ->
 describe 'functional tests', () ->
   it 'its code runs on node', () ->
     hi = null
-    eval(bindifyPrelude + dumbjs '(function(){ hi = "hi" }())')
+    eval(bindifyPrelude + dumbjs('(function(){ hi = "hi" }())') + ';main()')
     ok.equal(hi, 'hi')
 
   it 'passing functions works', () ->
     arr = []
-    eval dumbjs '''
+    eval(bindifyPrelude + dumbjs('''
       function pushr(x) {
         arr.push(x())
       }
 
       pushr(function(){ return 1 })
       pushr(function(){ return 2 })
-    '''
+    ''') + ';main()')
 
     ok.deepEqual(arr, [1,2])
 
   it 'using recursion works', () ->
-    fact = eval dumbjs '''
-      (function factorial(n) {
+    FACT = 0
+    eval(bindifyPrelude + dumbjs('''
+      FACT = (function factorial(n) {
         if (n < 1) {
           return 1;
         }
         return n * factorial(n - 1)
       }(4));
-    '''
+    ''') + ';main()')
 
-    ok.equal(fact, 24)
+    ok.equal(FACT, 24)
 
-  it 'using closures works'
-    # arr = []
+  it 'using closures works', () ->
+    arr = []
 
-    # eval dumbjs '''
-    #   var to_call_later = []
-    #   function pushr(x) {
-    #     to_call_later.push(function() { arr.push(x()) })
-    #   }
+    eval(bindifyPrelude + dumbjs('''
+      var to_call_later = [];
+      function pushr(x) {
+        to_call_later.push(function() { arr.push(x()) })
+      }
 
-    #   pushr(function(){ return 1 })
-    #   pushr(function(){ return 2 })
+      pushr(function(){ return 1 });
+      pushr(function(){ return 2 });
 
-    #   for (var i = 0; i < to_call_later.length; i++) {
-    #     to_call_later[i]()
-    #   }
-    # '''
+      for (var i = 0; i < to_call_later.length; i++) {
+        to_call_later[i]();
+      }
+    ''') + ';main()')
 
-    # ok.deepEqual(arr, [1,2])
+    ok.deepEqual(arr, [1,2])
