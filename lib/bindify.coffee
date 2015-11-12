@@ -19,7 +19,7 @@ module.exports = (programNode, { bindFunctionName = 'BIND' } = {}) ->
           parent.type isnt 'FunctionDeclaration' and
           parent.type isnt 'FunctionExpression'
         closure = currentScope.variables.filter((p) -> /^_closure_/.test p.name)[0]
-        if closure and /^_closure_/.test closure.name
+        if closure and /^_closure_/.test(closure.name) and func_needs_bind(programNode, node.name)
           toWrap.push({ func: node, closureName: closure.name })
     leave: (node) ->
       if node.type in ['FunctionExpression', 'FunctionDeclaration']
@@ -40,3 +40,20 @@ call = (name, args) ->
     name: name,
   'arguments': args,
 
+func_needs_bind = (program, funcName) ->
+  return func_by_name(program, funcName).params[0]?.name is '_closure'
+
+func_by_name = (program, needle) ->
+  all_funcs(program.body).filter(({ node, name }) -> name is needle)[0].node
+
+all_funcs = (body) ->
+  return body.map(get_func_decl).filter((x) -> x isnt undefined)
+
+get_func_decl = (node) ->
+  if node.type is 'FunctionDeclaration'
+    return { node: node, name: node.id.name }
+  if node.type is 'VariableDeclaration' and
+      node.declarations[0].init?.type is 'FunctionExpression'
+    { id, init } = node.declarations[0]
+    return { node: init, name: id.name }
+  return undefined

@@ -335,7 +335,7 @@ describe 'dumbjs', ->
 
   it 'binds _flatten_* function to their current _closure_*', () ->
     code1 = esprima.parse '
-      function _flatten_0() { return _closure_0.x; }
+      function _flatten_0(_closure) { return _closure_0.x; }
       function x() {
         var _closure_0;
         return _flatten_0;
@@ -346,12 +346,40 @@ describe 'dumbjs', ->
     code1 = escodegen.generate code1
 
     jseq code1, '
-      function _flatten_0() {
+      function _flatten_0(_closure) {
         return _closure_0.x;
       }
       function x() {
         var _closure_0;
         return BIND(_flatten_0, _closure_0);
+      }
+    '
+
+  it 'binds only to functions which have a _closure argument', () ->
+    code1 = esprima.parse '
+      function _flatten_0(_closure) { return _closure_0.x; }
+      function _flatten_immune() { return _closure_0.x; }
+      function _flatten_immune_2(_closure1) { return _closure_0.x; }
+      function x() {
+        var _closure_0;
+        return _flatten_0;
+        return _flatten_immune;
+        return _flatten_immune_2;
+      }
+    '
+
+    bindify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function _flatten_0(_closure) { return _closure_0.x; }
+      function _flatten_immune() { return _closure_0.x; }
+      function _flatten_immune_2(_closure1) { return _closure_0.x; }
+      function x() {
+        var _closure_0;
+        return BIND(_flatten_0, _closure_0);
+        return _flatten_immune;
+        return _flatten_immune_2;
       }
     '
 
