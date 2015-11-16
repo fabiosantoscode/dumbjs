@@ -1,5 +1,6 @@
 fs = require 'fs'
 ok = require 'assert'
+estraverse = require 'estraverse'
 dumbjs = require '..'
 topmost = require '../lib/topmost'
 declosurify = require '../lib/declosurify'
@@ -148,7 +149,6 @@ describe 'dumbjs', ->
         _closure_0.foo = 5;
         _closure_0.bar = 6;
         function y() {
-          var _closure_1 = {};
           return _closure_0.foo + _closure_0.bar;
         }
         _closure_0.foo = 6;
@@ -217,10 +217,46 @@ describe 'dumbjs', ->
         var _closure_0 = {};
         _closure_0.foo = 5;
         function y(_closure) {
-          var _closure_1 = {};
-          _closure_1._closure_0 = _closure;
-          _closure_1.kek = 6;
-          return _closure.foo + _closure_1.kek;
+          var kek = 6;
+          return _closure.foo + kek;
+        }
+      }
+    '
+
+  it 'doesn\'t pass an upper closure and don\'t build your own closure if it\'s not needed', () ->
+    code1 = esprima.parse '
+      function immune1() { }
+      function immune15() { function xx(y) { var x; return x; } }
+      function immune2() {
+        function immuneToGetting() {
+          var x = 10;
+          return function immuneToPassing() {
+            function dontpassme() {
+              return 5;
+            }
+            return x;
+          };
+        }
+      }
+    '
+
+    declosurify code1, { params: false, fname: false }
+
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function immune1() { }
+      function immune15() { function xx(y) { var x; return x; } }
+      function immune2() {
+        function immuneToGetting() {
+          var _closure_0 = {};
+          _closure_0.x = 10;
+          return function immuneToPassing(_closure) {
+            function dontpassme() {
+              return 5;
+            }
+            return _closure.x;
+          };
         }
       }
     '
@@ -233,7 +269,7 @@ describe 'dumbjs', ->
       }
     '
 
-    declosurify code1, { fname: false, params: false }
+    declosurify code1, { fname: false, params: false, always_create_closures: true }
     code1 = escodegen.generate code1
 
     jseq code1, '
@@ -259,7 +295,7 @@ describe 'dumbjs', ->
       }
     '
 
-    declosurify code1, { fname: false, params: false }
+    declosurify code1, { fname: false, params: false, always_create_closures: true }
     code1 = escodegen.generate code1
 
     jseq code1, '
@@ -301,9 +337,7 @@ describe 'dumbjs', ->
         _closure_0.a = a;
         _closure_0.y = y;
         function y(z) {
-          var _closure_1 = {};
-          _closure_1.z = z;
-          return _closure_0.a(_closure_0.y)(_closure_1.z);
+          return _closure_0.a(_closure_0.y)(z);
         }
       }
     '
@@ -317,7 +351,7 @@ describe 'dumbjs', ->
         }
       }
     '
-    declosurify code1, { fname: false, params: false, }
+    declosurify code1, { fname: false, params: false, always_create_closures: true }
     code1 = escodegen.generate code1
     jseq(code1, '
       function x() {
