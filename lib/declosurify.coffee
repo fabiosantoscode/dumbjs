@@ -181,7 +181,8 @@ _declosurify = (programNode, opt = {}) ->
 
   for { func, closureName, scopesAbove } in to_unshift
     if opt.recursiveClosures isnt false and
-        scopesAbove.length isnt 0
+        scopesAbove.length isnt 0 and
+        func.params[0]?.name is '_closure'
       [upperClosure, otherClosures...] = scopesAbove
       otherClosures.reverse()  # just so the the assignments are in a prettier order
 

@@ -261,6 +261,31 @@ describe 'dumbjs', ->
       }
     '
 
+  it 'regression: doesnt refer to _closure when theres none', () ->
+    code1 = esprima.parse '
+      function thing(x) {
+        function y() {
+          return x - 1
+        }
+        return y()
+      }
+    '
+
+    declosurify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function thing(x) {
+        var _closure_0 = {};
+        _closure_0.x = x;
+        _closure_0.y = y;
+        function y(_closure) {
+          return _closure.x - 1;
+        }
+        return _closure_0.y();
+      }
+    '
+
   it 'Assigns closures above it to its own closure', () ->
     code1 = esprima.parse '
       function x() {
@@ -475,3 +500,60 @@ describe 'functional tests', () ->
     ''') + ';main()')
 
     ok.deepEqual(arr, [1,2])
+
+  it 'regression: trying to access _closure parameter when there is none', () ->
+    first_chunk = '''
+      function fib(n) {
+        return n == 0 ? 0 :
+          n == 1 ? 1 :
+                fib(n - 1) + fib(n - 2)
+      }
+    '''
+    second_chunk = '''
+      function inc(start) {
+        // Featuring level 2 closures!
+        return function bar() {
+          return start++
+        }
+      }
+      var incrementor = inc(-1)
+      arr.push(incrementor())
+      arr.push(incrementor())
+      arr.push(incrementor())
+    '''
+
+    jseq(dumbjs(first_chunk + second_chunk), '''
+      var _flatten_1 = function bar(_closure) {
+          return _closure.start++;
+      };
+      var _flatten_2 = function (start) {
+          var _closure_1 = {};
+          _closure_1.start = start;
+          return BIND(_flatten_1, _closure_1);
+      };
+      var _flatten_0 = function (_closure, n) {
+          return n == 0 ? 0 : n == 1 ? 1 : _closure._ownfunction_0(n - 1) + _closure._ownfunction_0(n - 2);
+      };
+      var main = function () {
+          var _closure_0 = {};
+          _closure_0.fib = BIND(_flatten_0, _closure_0);
+          _closure_0.inc = _flatten_2;
+          _closure_0._ownfunction_0 = _closure_0.fib;
+          _closure_0.incrementor = _closure_0.inc(-1);
+          arr.push(_closure_0.incrementor());
+          arr.push(_closure_0.incrementor());
+          arr.push(_closure_0.incrementor());
+      };
+    ''')
+
+    arr = []
+    eval(bindifyPrelude + dumbjs(first_chunk + second_chunk) + ';main()')
+    ok.deepEqual(
+      arr,
+      [-1, 0, 1]
+    )
+
+    arr = []
+    eval(bindifyPrelude + dumbjs(first_chunk + 'arr.push(fib(4))') + ';main()')
+    ok.equal(arr[0], 3)
+
