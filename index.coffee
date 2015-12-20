@@ -10,6 +10,7 @@ topmost = require './lib/topmost'
 declosurify = require './lib/declosurify'
 bindify = require './lib/bindify'
 mainify = require './lib/mainify'
+depropinator = require './lib/depropinator'
 ownfunction = require './lib/ownfunction'
 
 clean_ast = (ast) ->
@@ -22,6 +23,9 @@ clean_ast = (ast) ->
 dumbifyAST = (ast, opt = {}) ->
   if opt.mainify isnt false
     mainify ast
+    clean_ast ast
+  if opt.depropinator isnt false
+    depropinator ast
     clean_ast ast
   if opt.declosurify isnt false  # this one is not really a pass, it's a pre-declosurify operation
     ownfunction ast

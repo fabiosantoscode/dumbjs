@@ -7,6 +7,7 @@ declosurify = require '../lib/declosurify'
 ownfunction = require '../lib/ownfunction'
 bindify = require '../lib/bindify.coffee'
 bindifyPrelude = require '../lib/bindify-prelude.coffee'
+depropinator = require '../lib/depropinator.coffee'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
@@ -440,6 +441,23 @@ describe 'dumbjs', ->
         return _flatten_immune;
         return _flatten_immune_2;
       }
+    '
+
+  it 'Turns object declarations into iifes', () ->
+    code1 = esprima.parse '
+      var x = { foo: "bar", baz: -1 };
+    '
+
+    depropinator code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      var x = function () {
+        var ret = {};
+        ret.foo = \'bar\';
+        ret.baz = -1;
+        return ret;
+      }()
     '
 
   it 'screams at you for using globals'
