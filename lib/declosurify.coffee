@@ -235,6 +235,8 @@ assignment = (left, right) ->
 is_above = (above, scope) ->
   assert scope, 'scope is ' + scope
   assert above, 'above is ' + above
+  assert scope.upper isnt undefined, 'scope is not a scope, its .upper is ' + scope.upper
+  assert above.upper isnt undefined, 'above is not a scope, its .upper is ' + above.upper
   while scope
     scope = scope.upper
     if scope is above
