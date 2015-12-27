@@ -13,15 +13,16 @@ module.exports = (programNode) ->
   currentIdx = 0
   counter = 0
   scopeMan = escope.analyze programNode
-  currentScope = scopeMan.acquire(programNode)
+  scopeStack = [ scopeMan.acquire(programNode) ]
+  currentScope = () -> scopeStack[scopeStack.length - 1]
 
   estraverse.traverse programNode,
     enter: (node) ->
       if /Function/.test node.type
-        currentScope = scopeMan.acquire(node)
+        scopeStack.push(scopeMan.acquire(node))
     leave: (node, parent) ->
       if /Function/.test node.type
-        currentScope = currentScope.upper
+        scopeStack.pop()
 
       if parent?.type is 'Program'
         currentIdx = parent.body.indexOf node
@@ -32,7 +33,7 @@ module.exports = (programNode) ->
         if node.type is 'FunctionDeclaration'
           newName = "_flatten_#{counter++}"
           changeNames.push({ id: node.id, name: newName })
-          for ref in currentScope.references
+          for ref in currentScope().references
             if ref.identifier.name == node.id.name
               changeNames.push({ id: ref.identifier, name: newName })
           insertFuncs.push({ insert: node, into: currentIdx })

@@ -86,6 +86,43 @@ describe 'dumbjs', ->
       x(_flatten_0);
     '
 
+  it 'regression: renames all functions, even if they contain named functions.', () ->
+    # This bug is caused by using escope's scope = scope.upper to
+    # return to the upper scope when inside a function. This
+    # doesn't work because not only functions have closures. In
+    # fact, named functions appear to have an extra escope scope
+    # wherein their name can be used.
+    code1 = esprima.parse '
+      function main() {
+        function maker2() {
+            return function objectMaker(_closure) {
+                return function (_closure) {
+                    return 3;
+                };
+            };
+        }
+        maker2(5);
+      }
+    '
+
+    topmost code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      var _flatten_1 = function objectMaker(_closure) {
+          return _flatten_0;
+      };
+      var _flatten_0 = function (_closure) {
+          return 3;
+      };
+      function _flatten_2() {
+          return _flatten_1;
+      }
+      function main() {
+          _flatten_2(5);
+      }
+    '
+
   it 'renames not only references to functions, but references to the current function, lexical style', () ->
     code1 = esprima.parse '
       function x() {
