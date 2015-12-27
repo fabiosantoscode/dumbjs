@@ -71,9 +71,6 @@ _declosurify = (programNode, opt = {}) ->
   this_function_needs_to_take_closure = () ->
     if opt.always_create_closures
       return true
-    do_log = current_function().id?.name is 'immuneToPassing'
-    if do_log
-      x = escope_scope().references.filter((x) -> x.resolved?.name is 'x')[0]
     for ref in escope_scope().references
       if ref.resolved and
           ref.resolved.stack isnt true and
