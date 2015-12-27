@@ -5,25 +5,25 @@ estraverse = require 'estraverse'
 module.exports = (programNode, { bindFunctionName = 'BIND' } = {}) ->
   toWrap = []  # Array of { func, closureName }
   scopeMan = escope.analyze programNode
-
-  currentScope = scopeMan.acquire programNode
+  scope_stack = [ scopeMan.acquire(programNode) ]  # From outermost to innermost, the lexical scopes
+  current_scope = () -> scope_stack[scope_stack.length - 1]
 
   estraverse.traverse(programNode, {
     enter: (node, parent) ->
       if node.type in ['FunctionExpression', 'FunctionDeclaration']
-        currentScope = scopeMan.acquire node
+        scope_stack.push(scopeMan.acquire node)
 
       if node.type in ['Identifier'] and
           /^_flatten_/.test(node.name) and
           parent.type isnt 'VariableDeclarator' and
           parent.type isnt 'FunctionDeclaration' and
           parent.type isnt 'FunctionExpression'
-        closure = currentScope.variables.filter((p) -> /^_closure_/.test p.name)[0]
+        closure = current_scope().variables.filter((p) -> /^_closure_/.test p.name)[0]
         if closure and /^_closure_/.test(closure.name) and func_needs_bind(programNode, node.name)
           toWrap.push({ func: node, closureName: closure.name })
     leave: (node) ->
       if node.type in ['FunctionExpression', 'FunctionDeclaration']
-        currentScope = currentScope.upper
+        scope_stack.pop()
   })
 
   estraverse.replace(programNode, {
