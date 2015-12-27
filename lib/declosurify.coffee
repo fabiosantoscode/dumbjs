@@ -11,10 +11,11 @@ module.exports = (args...) ->
 
 _declosurify = (programNode, opt = {}) ->
   scopeMan = escope.analyze programNode
-  escope_scope = scopeMan.acquire(programNode)
   tern.analyze(programNode)
 
   scope_stack = []  # From outermost to innermost, the lexical scopes
+  escope_scope_stack = [ scopeMan.acquire(programNode) ]
+  escope_scope = () -> escope_scope_stack[escope_scope_stack.length - 1]
   current_scope = () -> scope_stack[scope_stack.length - 1]
   upper_scope = () -> scope_stack[scope_stack.length - 2]
   _counter = 0
@@ -58,10 +59,10 @@ _declosurify = (programNode, opt = {}) ->
   this_function_needs_to_pass_closure = () ->
     if opt.always_create_closures
       return true
-    for variable in escope_scope.variables
+    for variable in escope_scope().variables
       if variable.stack is false
         return true
-    for through in escope_scope.through
+    for through in escope_scope().through
       if through.resolved and
           is_above(current_scope, through.resolved.scope)
         return true
@@ -72,13 +73,13 @@ _declosurify = (programNode, opt = {}) ->
       return true
     do_log = current_function().id?.name is 'immuneToPassing'
     if do_log
-      x = escope_scope.references.filter((x) -> x.resolved?.name is 'x')[0]
-    for ref in escope_scope.references
+      x = escope_scope().references.filter((x) -> x.resolved?.name is 'x')[0]
+    for ref in escope_scope().references
       if ref.resolved and
           ref.resolved.stack isnt true and
-          is_above(ref.resolved.scope, escope_scope)
+          is_above(ref.resolved.scope, escope_scope())
         return true
-    for through in escope_scope.through
+    for through in escope_scope().through
       if through.resolved
         return true
     return false
@@ -102,7 +103,7 @@ _declosurify = (programNode, opt = {}) ->
   estraverse.replace programNode,
     enter: (node, parent) ->
       if node.type in ['FunctionDeclaration', 'FunctionExpression']
-        escope_scope = scopeMan.acquire(node)
+        escope_scope_stack.push(scopeMan.acquire(node))
         scope_stack.push node.scope
         assert node.scope
 
@@ -121,9 +122,7 @@ _declosurify = (programNode, opt = {}) ->
       return node
     leave: (node, parent) ->
       if node.type in ['FunctionDeclaration', 'FunctionExpression']
-        escope_scope = escope_scope.upper
-        if escope_scope?.type is 'function-expression-name'
-          escope_scope = escope_scope.upper
+        escope_scope_stack.pop()
         scope_stack.pop()
         return
 
