@@ -480,6 +480,26 @@ describe 'dumbjs', ->
       }
     '
 
+  it 'regression: doesn\'t try to look for _closure_# in function-expression-name scopes. wtf!', () ->
+    code1 = esprima.parse '
+      var _flatten_0 = function (_closure) { };
+      var _flatten_1 = function hiImAFunctionName(_closure) {
+          var _closure_1 = {};
+          return _flatten_0;
+      };
+    '
+
+    bindify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      var _flatten_0 = function (_closure) { };
+      var _flatten_1 = function hiImAFunctionName(_closure) {
+          var _closure_1 = {};
+          return BIND(_flatten_0, _closure_1);
+      };
+    '
+
   it 'Turns object declarations into iifes', () ->
     code1 = esprima.parse '
       var x = { foo: "bar", baz: -1 };

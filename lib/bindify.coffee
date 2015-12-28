@@ -11,7 +11,11 @@ module.exports = (programNode, { bindFunctionName = 'BIND' } = {}) ->
   estraverse.traverse(programNode, {
     enter: (node, parent) ->
       if node.type in ['FunctionExpression', 'FunctionDeclaration']
-        scope_stack.push(scopeMan.acquire node)
+        scope = scopeMan.acquire node
+        if scope.type is 'function-expression-name'
+          scope = scope.childScopes[0]
+        scope_stack.push scope
+        return
 
       if node.type in ['Identifier'] and
           /^_flatten_/.test(node.name) and

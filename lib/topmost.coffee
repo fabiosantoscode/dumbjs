@@ -19,7 +19,10 @@ module.exports = (programNode) ->
   estraverse.traverse programNode,
     enter: (node) ->
       if /Function/.test node.type
-        scopeStack.push(scopeMan.acquire(node))
+        scope = scopeMan.acquire(node)
+        if scope.type is 'function-expression-name'
+          scope = scope.childScopes[0]
+        scopeStack.push(scope)
     leave: (node, parent) ->
       if /Function/.test node.type
         scopeStack.pop()

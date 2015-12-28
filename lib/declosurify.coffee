@@ -20,6 +20,11 @@ _declosurify = (programNode, opt = {}) ->
   upper_scope = () -> scope_stack[scope_stack.length - 2]
   _counter = 0
   closure_name = () -> "_closure_#{_counter++}"
+  scope_of_function = (node) ->
+    scope = scopeMan.acquire(node)
+    if scope.type is 'function-expression-name'
+      scope = scope.childScopes[0]
+    return scope
 
   scope_with = (name) ->
     assert typeof name is 'string'
@@ -100,7 +105,7 @@ _declosurify = (programNode, opt = {}) ->
   estraverse.replace programNode,
     enter: (node, parent) ->
       if node.type in ['FunctionDeclaration', 'FunctionExpression']
-        escope_scope_stack.push(scopeMan.acquire(node))
+        escope_scope_stack.push(scope_of_function(node))
         scope_stack.push node.scope
         assert node.scope
 
