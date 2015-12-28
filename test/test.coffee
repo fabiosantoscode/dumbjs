@@ -345,6 +345,34 @@ describe 'dumbjs', ->
       }
     '
 
+  it 'Works okay even if the function doesn\'t use the closure but passes it', () ->
+    code1 = esprima.parse '
+      function x(foo) {
+        return function passClosureThrough() {
+          return function passMe() {
+            return ++foo
+          }
+        }
+      }
+    '
+
+    declosurify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x(foo) {
+        var _closure_0 = {};
+        _closure_0.foo = foo;
+        return function passClosureThrough(_closure) {
+          var _closure_1 = {};
+          _closure_1._closure_0 = _closure;
+          return function passMe(_closure) {
+            return ++_closure._closure_0.foo;
+          };
+        };
+      }
+    '
+
   it 'deeply assigns closures above it to its own closure', () ->
     code1 = esprima.parse '
       function x() {
@@ -575,6 +603,22 @@ describe 'functional tests', () ->
     ''') + ';main()')
 
     ok.deepEqual(arr, [1,2])
+
+  it 'regression: closures don\'t work if passed recursively through a function that doesn\'t use them', () ->
+    arr = []
+
+    eval(bindifyPrelude + dumbjs('''
+      function maker(start) {
+        return (function makeriife() {
+          return function makerreturner() {
+            return ++start
+          }
+        }())
+      }
+      arr.push(maker(7)())
+    ''') + ';main()')
+
+    ok.deepEqual(arr, [ 8 ])
 
   it 'regression: trying to access _closure parameter when there is none', () ->
     first_chunk = '''

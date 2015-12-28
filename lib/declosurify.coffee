@@ -61,16 +61,32 @@ _declosurify = (programNode, opt = {}) ->
 
   to_unshift = []  # We keep notes of { func, closureName, scopesAbove } so we add var _closure_X = {} later.
 
+  all_functions_below = (func) ->
+    funcs = []
+    estraverse.traverse(func, {
+      enter: (node) ->
+        if node is func
+          return
+        if node.type in ['FunctionDeclaration', 'FunctionExpression']
+          funcs.push node
+    })
+    return funcs
+
   this_function_needs_to_pass_closure = () ->
     if opt.always_create_closures
       return true
     for variable in escope_scope().variables
       if variable.stack is false
         return true
-    for through in escope_scope().through
-      if through.resolved and
-          is_above(current_scope, through.resolved.scope)
-        return true
+    if /Function/.test(escope_scope().block?.type)
+      funcs_below = all_functions_below(escope_scope().block)
+      if funcs_below.length
+        throughs = escope_scope().through.map((through) -> through.resolved)
+        return funcs_below
+          .map((node) -> scope_of_function node)
+          .some((scope) ->
+            scope.through.some((through) -> through.resolved in throughs)
+          )
     return false
 
   this_function_needs_to_take_closure = () ->
@@ -139,6 +155,21 @@ _declosurify = (programNode, opt = {}) ->
         if current_function().id?.name is 'dontPassMe'
           assert(!this_function_needs_to_pass_closure(), '5')
           assert(!this_function_needs_to_take_closure(), '6')
+        if current_function().id?.name is 'maker'
+          assert(this_function_needs_to_pass_closure(), '7')
+          assert(!this_function_needs_to_take_closure(), '8')
+        if current_function().id?.name is 'makeriife'
+          assert(this_function_needs_to_pass_closure(), '9')
+          assert(this_function_needs_to_take_closure(), '10')
+        if current_function().id?.name is 'makerreturner'
+          assert(!this_function_needs_to_pass_closure(), '11')
+          assert(this_function_needs_to_take_closure(), '12')
+        if current_function().id?.name is 'passClosureThrough'
+          assert(this_function_needs_to_pass_closure(), '13')
+          assert(this_function_needs_to_take_closure(), '14')
+        if current_function().id?.name is 'passMe'
+          assert(!this_function_needs_to_pass_closure(), '15')
+          assert(this_function_needs_to_take_closure(), '16')
 
       if node.type in ['Identifier'] and
           current_scope() and
