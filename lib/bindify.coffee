@@ -15,11 +15,9 @@ module.exports = (programNode, { bindFunctionName = 'BIND' } = {}) ->
 
       if node.type in ['Identifier'] and
           /^_flatten_/.test(node.name) and
-          parent.type isnt 'VariableDeclarator' and
-          parent.type isnt 'FunctionDeclaration' and
-          parent.type isnt 'FunctionExpression'
+          parent.type not in ['VariableDeclarator', 'FunctionDeclaration', 'FunctionExpression']
         closure = current_scope().variables.filter((p) -> /^_closure_/.test p.name)[0]
-        if closure and /^_closure_/.test(closure.name) and func_needs_bind(programNode, node.name)
+        if closure and func_needs_bind(programNode, node.name)
           toWrap.push({ func: node, closureName: closure.name })
     leave: (node) ->
       if node.type in ['FunctionExpression', 'FunctionDeclaration']
