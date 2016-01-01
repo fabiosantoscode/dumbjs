@@ -11,10 +11,24 @@ module.exports = (programNode) ->
   insertVars = []
   changeNames = []
   currentIdx = 0
-  counter = 0
   scopeMan = escope.analyze programNode
   scopeStack = [ scopeMan.acquire(programNode) ]
   currentScope = () -> scopeStack[scopeStack.length - 1]
+  slugify = (name) ->
+    '_flatten_' + name.replace(/./g, (char) ->
+      if char is '$'
+        return ''
+      return char
+    )
+  _nameCounter = 0
+  _namesUsed = []
+  generateName = (node) ->
+    if node.id?.name
+      name = slugify node.id.name
+      if name not in _namesUsed
+        _namesUsed.push(name)
+        return name
+    return "_flatten_#{_nameCounter++}"
 
   estraverse.traverse programNode,
     enter: (node) ->
@@ -34,14 +48,14 @@ module.exports = (programNode) ->
       # Shove them upwards!
       if parent?.type isnt 'Program'
         if node.type is 'FunctionDeclaration'
-          newName = "_flatten_#{counter++}"
+          newName = generateName(node)
           changeNames.push({ id: node.id, name: newName })
           for ref in currentScope().references
             if ref.identifier.name == node.id.name
               changeNames.push({ id: ref.identifier, name: newName })
           insertFuncs.push({ insert: node, into: currentIdx })
         if node.type is 'FunctionExpression'
-          variable = "_flatten_#{counter++}"
+          variable = generateName(node)
           insertVars.push({ insert: node, into: currentIdx, variable: variable })
 
         if /Function/.test(node.type) and node.id

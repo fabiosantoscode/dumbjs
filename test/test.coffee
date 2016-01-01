@@ -62,11 +62,11 @@ describe 'dumbjs', ->
     code1 = escodegen.generate code1
 
     jseq code1, '
-      function _flatten_0() {
+      function _flatten_y() {
         return 6;
       }
       function x() {
-        return _flatten_0();
+        return _flatten_y();
       }
     '
 
@@ -109,17 +109,17 @@ describe 'dumbjs', ->
     code1 = escodegen.generate code1
 
     jseq code1, '
-      var _flatten_1 = function objectMaker(_closure) {
+      var _flatten_objectMaker = function objectMaker(_closure) {
           return _flatten_0;
       };
       var _flatten_0 = function (_closure) {
           return 3;
       };
-      function _flatten_2() {
-          return _flatten_1;
+      function _flatten_maker2() {
+          return _flatten_objectMaker;
       }
       function main() {
-          _flatten_2(5);
+          _flatten_maker2(5);
       }
     '
 
@@ -136,8 +136,8 @@ describe 'dumbjs', ->
     code1 = escodegen.generate code1
 
     jseq code1, '
-      function _flatten_0() {
-        return _flatten_0();
+      function _flatten_y() {
+        return _flatten_y();
       }
       function x() {
       }
@@ -156,12 +156,12 @@ describe 'dumbjs', ->
     topmost code1
     code1 = escodegen.generate code1
     jseq(code1, '
-      function _flatten_0() {
+      function _flatten_lel2() {
         return x;
       }
       function lel1() {
         var x = 60;
-        return _flatten_0;
+        return _flatten_lel2;
       }
     ')
 
@@ -683,21 +683,21 @@ describe 'functional tests', () ->
     '''
 
     jseq(dumbjs(first_chunk + second_chunk), '''
-      var _flatten_1 = function bar(_closure) {
+      var _flatten_bar = function bar(_closure) {
           return _closure.start++;
       };
-      var _flatten_2 = function (start) {
+      var _flatten_inc = function (start) {
           var _closure_1 = {};
           _closure_1.start = start;
-          return BIND(_flatten_1, _closure_1);
+          return BIND(_flatten_bar, _closure_1);
       };
-      var _flatten_0 = function (_closure, n) {
+      var _flatten_fib = function (_closure, n) {
           return n == 0 ? 0 : n == 1 ? 1 : _closure._ownfunction_0(n - 1) + _closure._ownfunction_0(n - 2);
       };
       var main = function () {
           var _closure_0 = {};
-          _closure_0.fib = BIND(_flatten_0, _closure_0);
-          _closure_0.inc = _flatten_2;
+          _closure_0.fib = BIND(_flatten_fib, _closure_0);
+          _closure_0.inc = _flatten_inc;
           _closure_0._ownfunction_0 = _closure_0.fib;
           _closure_0.incrementor = _closure_0.inc(-1);
           arr.push(_closure_0.incrementor());
