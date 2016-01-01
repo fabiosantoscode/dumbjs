@@ -457,6 +457,47 @@ describe 'dumbjs', ->
       }
     ')
 
+  it 'regression: if closures aren\'t continuously needed up to the root, don\'t try to access them', () ->
+    code1 = esprima.parse '
+      function main() {
+        function maker4(start) {
+          return (function(){
+            return function() {
+              return start;
+            };
+          }());
+        }
+        function xaero(n) {
+          return obj;
+        }
+        var obj = maker4(5);
+      }
+    '
+    declosurify code1
+    code1 = escodegen.generate code1
+    jseq(code1, '
+      function main() {
+        var _closure_0 = {};
+        _closure_0.maker4 = maker4;
+        _closure_0.xaero = xaero;
+        function maker4(start) {
+          var _closure_1 = {};
+          _closure_1.start = start;
+          return function (_closure) {
+            var _closure_2 = {};
+            _closure_2._closure_1 = _closure;
+            return function (_closure) {
+              return _closure._closure_1.start;
+            };
+          }();
+        }
+        function xaero(_closure, n) {
+          return _closure.obj;
+        }
+        _closure_0.obj = _closure_0.maker4(5);
+      }
+    ')
+
 
   it 'binds _flatten_* function to their current _closure_*', () ->
     code1 = esprima.parse '

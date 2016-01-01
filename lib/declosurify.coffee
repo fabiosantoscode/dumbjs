@@ -56,8 +56,15 @@ _declosurify = (programNode, opt = {}) ->
 
   current_function = () -> scope_stack[scope_stack.length - 1].originNode
 
-  scopes_above = () ->
-    return scope_stack.slice(0).reverse().slice(1).map(Object.freeze)
+  chain_of_scopes_using_upper_closure = (_from = 2) ->
+    tern_scope = scope_stack[scope_stack.length - _from]
+    # TODO below line works works but depends on mutable state.
+    uses_upper_closure = tern_scope?.originNode.params[0]?.name is '_closure'
+    if uses_upper_closure
+      return [tern_scope].concat(chain_of_scopes_using_upper_closure(_from + 1))
+    if tern_scope
+      return [tern_scope]
+    return []
 
   to_unshift = []  # We keep notes of { func, closureName, scopesAbove } so we add var _closure_X = {} later.
 
@@ -130,13 +137,14 @@ _declosurify = (programNode, opt = {}) ->
           to_unshift.push({
             func: node,
             closureName: node.scope.name,
-            scopesAbove: scopes_above(),
+            scopesAbove: chain_of_scopes_using_upper_closure(),
           })
 
         if this_function_needs_to_take_closure()
           if parent isnt programNode and
               opt.recursiveClosures isnt false
             node.params.unshift({ type: 'Identifier', name: '_closure' })
+
       return node
     leave: (node, parent) ->
       if node.type in ['FunctionDeclaration', 'FunctionExpression']
