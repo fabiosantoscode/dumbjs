@@ -8,7 +8,6 @@ module.exports = (ast) ->
       if node.type is 'ObjectExpression' and node.properties.length
         { properties } = node
         assignments = properties.map(({ key, value, computed }) ->
-          assert not computed, 'Only plain properties are currently supported in objects (IE: not string properties)'
           return {
             type: 'ExpressionStatement',
             expression: {
@@ -16,7 +15,7 @@ module.exports = (ast) ->
               operator: '=',
               left: {
                 type: 'MemberExpression',
-                computed: false,
+                computed: key.type isnt 'Identifier',
                 object: {
                   type: 'Identifier',
                   name: 'ret',
