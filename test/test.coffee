@@ -1,4 +1,5 @@
 fs = require 'fs'
+es = require 'event-stream'
 ok = require 'assert'
 estraverse = require 'estraverse'
 dumbjs = require '..'
@@ -8,6 +9,7 @@ ownfunction = require '../lib/ownfunction'
 bindify = require '../lib/bindify.coffee'
 bindifyPrelude = require '../lib/bindify-prelude'
 depropinator = require '../lib/depropinator.coffee'
+flatten = require '../bin/flatten.js'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
@@ -41,10 +43,14 @@ describe 'dumbjs', ->
       '(function () { }());',
       { topmost: false, declosurify: false, mainify: false, }
 
-  it 'resolves require() calls with module-deps and browser-pack so as to generate a single output file', () ->
-    code = dumbjs 'require("./test/some.js")'  # actual file in this directory
-    ok /xfoo/.test code  # known string in other file
-    ok /MODULE_NOT_FOUND/.test code  # known string in browserify prelude
+  it 'resolves require() calls with module-deps and browser-pack so as to generate a single output file', (done) ->
+    onData = (err, code) ->
+      if err
+        return done(err)
+      ok /xfoo/.test code  # known string in other file
+      ok /MODULE_NOT_FOUND/.test code  # known string in browserify prelude
+      done()
+    flatten('require("./test/some.js")').pipe(es.wait(onData))
 
   it 'polyfills regexps with xregexp'
 
@@ -599,6 +605,12 @@ describe 'functional tests', () ->
     hi = null
     eval(bindifyPrelude + dumbjs('(function(){ hi = "hi" }())') + ';main()')
     ok.equal(hi, 'hi')
+
+  it 'require() works', () ->
+    XFOO = null
+    code = dumbjs 'XFOO=require("./test/some.js");'  # actual file in this directory
+    eval(bindifyPrelude + code + '\nmain()')
+    ok.equal XFOO(), 'xfoo'
 
   it 'passing functions works', () ->
     arr = []
