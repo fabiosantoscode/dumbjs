@@ -596,10 +596,6 @@ describe 'dumbjs', ->
 
   it 'screams at you for using eval, arguments, this, reserved names (_closure_, _closure, _flatten_, _ownfunction_)'
 
-  it 'doesnt let you subscript stuff with anything other than numbers or letters (IE: not strings, not expressions)'
-
-  it 'puts all program code in the bottom of everything into a function called "main"'
-
 describe 'functional tests', () ->
   it 'its code runs on node', () ->
     hi = null
