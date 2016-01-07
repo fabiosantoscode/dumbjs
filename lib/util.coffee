@@ -1,7 +1,7 @@
 exports.nameSluginator = (prefix = '_') ->
   sluginator = (name) ->
     prefix + name.replace(/./g, (char) ->
-      if char is '$'
+      if not /[a-zA-Z0-9_]/.test(char)
         return ''
       return char
     )

@@ -3,6 +3,7 @@ es = require 'event-stream'
 ok = require 'assert'
 estraverse = require 'estraverse'
 dumbjs = require '..'
+requireObliteratinator = require '../lib/require-obliteratinator'
 topmost = require '../lib/topmost'
 declosurify = require '../lib/declosurify'
 ownfunction = require '../lib/ownfunction'
@@ -42,15 +43,6 @@ describe 'dumbjs', ->
       ',
       '(function () { }());',
       { topmost: false, declosurify: false, mainify: false, }
-
-  it 'resolves require() calls with module-deps and browser-pack so as to generate a single output file', (done) ->
-    onData = (err, code) ->
-      if err
-        return done(err)
-      ok /xfoo/.test code  # known string in other file
-      ok /MODULE_NOT_FOUND/.test code  # known string in browserify prelude
-      done()
-    flatten('require("./test/some.js")').pipe(es.wait(onData))
 
   it 'polyfills regexps with xregexp'
 
@@ -592,6 +584,99 @@ describe 'dumbjs', ->
       }()
     '
 
+  it 'turns modules into functions that return modules', () ->
+    code1 = esprima.parse '
+      foobarbaz();
+      module.exports = 3;
+    '
+
+    requireObliteratinator(code1, { filename: '/path/to/the-module.js', isMain: false })
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      var _was_module_initialised_themodule = false;
+      var _module_themodule;
+      function _require_themodule() {
+        function _initmodule_themodule() {
+          var module = {};
+          var __filename = '/path/to/the-module.js';
+          var __dirname = '/path/to';
+          foobarbaz();
+          module.exports = 3;
+          return module.exports;
+        }
+        if (_was_module_initialised_themodule) {
+          return _module_themodule;
+        }
+        _module_themodule = _initmodule_themodule();
+        return _module_themodule;
+      }
+    "
+
+  it 'reads foundModules hash to map absolute filenames to module names', () ->
+    code1 = esprima.parse '
+      require("foo");
+      require("./foo");
+      require("/path/to/foo");
+    '
+
+    requireObliteratinator(code1, {
+      filename: __dirname + '/the-module.js',
+      isMain: false,
+      _doWrap: false,  # shortens output by removing outer func
+      foundModules: {
+        '/path/to/foo': '_foo'
+      },
+      resolve: (name) ->
+        ok name in ['foo', './foo', '/path/to/foo']
+        return '/path/to/foo'
+    })
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      _require_foo();
+      _require_foo();
+      _require_foo();
+    "
+
+  it 'calls readFileSync to read the module file', () ->
+    code1 = esprima.parse '
+      require("foo");
+    '
+
+    rfsCalled = false
+    rfs = (name) ->
+      ok name is '/path/to/foo'
+      rfsCalled = true
+      return Buffer('')
+    recursed = false
+
+    foundModules = {}
+
+    requireObliteratinator(code1, {
+      filename: __dirname + '/the-module.js',
+      isMain: false,
+      _doWrap: false,  # shortens output by removing outer func
+      foundModules,
+      resolve: (name) ->
+        ok name is 'foo'
+        return '/path/to/foo'
+      readFileSync: rfs
+      _recurse: (ast, opt) ->
+        recursed = true
+        ok.equal(ast.type, 'Program')
+        ok.deepEqual(ast.body, [])
+        ok.equal(opt.isMain, false)
+        ok.equal(opt.readFileSync, rfs)
+        ok.equal(opt.filename, '/path/to/foo')
+        ok.equal(opt.slug, '_foo')
+        ok.strictEqual(opt.foundModules, foundModules)
+        return { type: 'Program', body: [] }
+    })
+
+    ok rfsCalled, 'readFileSync was called'
+    ok recursed, 'function recursed into itself'
+
   it 'screams at you for using globals'
 
   it 'screams at you for using eval, arguments, this, reserved names (_closure_, _closure, _flatten_, _ownfunction_)'
@@ -604,7 +689,7 @@ describe 'functional tests', () ->
 
   it 'require() works', () ->
     XFOO = null
-    code = dumbjs 'XFOO=require("./test/some.js");'  # actual file in this directory
+    code = dumbjs 'XFOO=require("../test/some.js");'  # actual file in this directory
     eval(bindifyPrelude + code + '\nmain()')
     ok.equal XFOO(), 'xfoo'
 

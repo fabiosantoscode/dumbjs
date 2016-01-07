@@ -6,6 +6,7 @@ escodegen = require 'escodegen'
 estraverse = require 'estraverse'
 child_process = require 'child_process'
 
+requireObliteratinator = require './lib/require-obliteratinator'
 topmost = require './lib/topmost'
 declosurify = require './lib/declosurify'
 bindify = require './lib/bindify'
@@ -21,6 +22,9 @@ clean_ast = (ast) ->
   })
 
 dumbifyAST = (ast, opt = {}) ->
+  if opt.requireObliteratinator isnt false
+    ast = requireObliteratinator ast
+    clean_ast ast
   if opt.mainify isnt false
     mainify ast
     clean_ast ast
@@ -80,20 +84,14 @@ acornOpts = {
   locations: true
 }
 
-flatten = (js) ->
-  return js unless /require\s*?\(/m.test js
-  ret = child_process.spawnSync('node', [__dirname + '/bin/flatten.js'], { input: js })
-  if ret.status isnt 0 || ret.error
-    throw ret.error || new Error(ret.stderr+'')
-  return ret.stdout+''
-
 dumbify = (js, opt = {}) ->
-  js = flatten js
+  mayContainRequire = /require\s*?\(/m.test js
   ast = esprima.parse(js, acornOpts)
+  if mayContainRequire is false
+    opt.requireObliteratinator = false
   ast = dumbifyAST ast, opt
   return escodegen.generate ast
 
 module.exports = dumbify
 module.exports.dumbify = dumbify
 module.exports.dumbifyAST = dumbifyAST
-module.exports.flatten = flatten
