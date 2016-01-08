@@ -15,6 +15,49 @@ So I made dumbjs. It turns javascript into a simpler subset of itself. The most 
  * Without any name collisions, unwrap functions so as to leave no nested function.
  * Separate definitions from declarations, so that var x = 3 in the global scope becomes var x; x = 3, then put every statement that performs any action (assignment or function call) in the global scope, in order, in a single function called "main", whose last statement will be "return 0".
 
+
+# How to install and run
+
+Installation is simply `npm install dumbjs -g`
+
+Running it is as easy as `dumbjs < input.js > output.dumb.js`
+
+There are currently no command line options :(
+
+
+# API docs
+
+## `require('dumbify')(javascriptCode, [options])`
+
+Dumbify a javascript string and return the resulting javascript code as a string.
+
+## `require('dumbify').dumbifyAST(javascriptAST, [options])`
+
+Dumbify a parsed javascript AST as returned by `esprima`, `acorn` or whatever parser you prefer.
+
+## `options`
+
+The options you can pass are written down in dumbifyAST, which is a pretty straightforward function in the `index` file.
+
+They turn several passes on and off, and these passes are not documented as of yet :P
+
+
+# What do I need to run dumbified code?
+
+So you want to transplile javascript to something huh? That sounds like fun!
+
+You have to implement some functions in your target environment!
+
+
+# BIND(func, closure) -> functionBoundToClosure
+
+In plain javascript: `function BIND(func,closure){return func.bind(null, closure)}`
+
+This function takes a function and an object, and returns a function that takes that object as the first argument. Simple right? A single-argument curry. This is used to pass closures in environments that don't have them.
+
+For js2cpp, for example, I had to turn every function that `BIND` was called on (these functions take `_closure` as the first argument so they're easy to find), into a callable class, and turn all `BIND` calls into `new ThatCallableClass(theClosure)`.
+
+
 # Recommended reading
 
 [This document](http://dspace.mit.edu/bitstream/handle/1721.1/5854/AIM-199.pdf) has been invaluable in understanding the difficulties and nuances of implementing closures, and describes complicated problems in a way that's easily understandable.
