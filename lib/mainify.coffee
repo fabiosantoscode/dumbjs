@@ -1,6 +1,6 @@
 
 
-module.exports = (ast) ->
+module.exports = (ast, { prepend = [], append = [] } = {}) ->
   ast.body = [
     {
       type: "FunctionDeclaration",
@@ -9,7 +9,7 @@ module.exports = (ast) ->
       defaults: [],
       body: {
         type: "BlockStatement",
-        body: ast.body,
+        body: prepend.concat(ast.body).concat(append),
       }
     }
   ]

@@ -26,7 +26,7 @@ dumbifyAST = (ast, opt = {}) ->
     ast = requireObliteratinator ast
     clean_ast ast
   if opt.mainify isnt false
-    mainify ast
+    mainify(ast, opt.mainify or {})
     clean_ast ast
   if opt.depropinator isnt false
     depropinator ast
