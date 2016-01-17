@@ -29,8 +29,7 @@ compileAndCheck = (before, after, opt = {}) ->
 
 describe 'dumbjs', ->
   it 'turns function declarations into variable declarations', ->
-    compileAndCheck '
-      function lel () { }',
+    compileAndCheck 'function lel () { }',
       'var lel = function () { };',
       { topmost: false, declosurify: false, mainify: false, }
 
