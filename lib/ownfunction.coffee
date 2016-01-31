@@ -1,35 +1,38 @@
 assert = require 'assert'
 estraverse = require 'estraverse'
 
-module.exports = (programNode, opt = {}) ->
+module.exports = (programNode, opt) ->
+  opt = opt || {}
   to_add = []  # Array of { var_decl, body, index }
   to_rename = []  # Array of { node, name }
   to_remove = []  # Array of nodes to remove
 
   _counter = 0
-  generate_name = () -> '_ownfunction_' + (_counter++)
+  generate_name = () ->
+    return '_ownfunction_' + (_counter++)
 
   body_stack = [programNode.body]
-  currentBody = () -> body_stack[body_stack.length - 1]
-  upperBody = () -> body_stack[body_stack.length - 2]
+  currentBody = () ->
+    return body_stack[body_stack.length - 1]
+  upperBody = () ->
+    return body_stack[body_stack.length - 2]
 
   currentIdx = 0
 
   usesOwnName = (functionNode) ->
-    functionName = functionNode.id?.name
-    if not functionName
+    if !functionNode.id
       return false
+    functionName = functionNode.id.name
     usages = []
     estraverse.traverse(functionNode, {
       enter: (node) ->
-        if node is functionNode or 
-            node is functionNode.id
+        if node == functionNode || node == functionNode.id
           return
         if /Function/.test(node.type)
-          return @skip()
-        if node.type is 'Identifier' and node.name is functionName
+          return this.skip()
+        if node.type == 'Identifier' && node.name == functionName
           usages.push(node)
-          return @break
+          return this.break
     })
     return usages
 
@@ -38,23 +41,23 @@ module.exports = (programNode, opt = {}) ->
       parentBody = parent && parent.body
       if parentBody && parentBody.body
         parentBody = parentBody.body
-      if parentBody is currentBody()
+      if parentBody == currentBody()
         _idx = parentBody.indexOf(node)
         if _idx != -1
           currentIdx = _idx
 
-      if node.type not in ['FunctionExpression', 'FunctionDeclaration']
+      if !/^Function/.test(node.type)
         return
 
       body_stack.push(node.body.body)
 
       ownNameUsages = usesOwnName(node)
-      if not ownNameUsages.length
+      if !ownNameUsages.length
         return
 
       newName = generate_name()
 
-      if node.type is 'FunctionExpression'
+      if node.type == 'FunctionExpression'
         to_remove.push(node)
         varDeclInit = JSON.parse(JSON.stringify(node))
         ownNameUsages = usesOwnName(varDeclInit)
@@ -87,8 +90,8 @@ module.exports = (programNode, opt = {}) ->
   # Careful: this must run before to_rename because mutable stuff
   estraverse.replace(programNode, {
     leave: (node) ->
-      if to_remove.indexOf(node) isnt -1
-        return @remove()
+      if to_remove.indexOf(node) != -1
+        return this.remove()
   })
 
   for { var_decl, body, index } in to_add.reverse()

@@ -1,17 +1,17 @@
-assert = require 'assert'
-path = require 'path'
-fs = require 'fs'
+assert = require('assert')
+path = require('path')
+fs = require('fs')
 
-esprima = require 'esprima'
+esprima = require('esprima')
 
-estraverse = require 'estraverse'
+estraverse = require('estraverse')
 resolveSync = require('resolve').sync
 
-{ nameSluginator } = require './util'
+util = require('./util')
 
 module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, filename = '', isMain = true, sluginator = null, _doWrap = true, resolve = resolveSync, slug, _recurse } = {}) ->
   if not sluginator
-    sluginator = nameSluginator()
+    sluginator = util.nameSluginator()
 
   dirname = path.dirname(filename)
   justTheFilename = path.basename(filename)
@@ -69,46 +69,47 @@ findModules = (ast, resolve, getModuleSlug) ->
           }
   })
 
-wrapModuleContents = ({ body, filename = '', dirname = '' }) -> [
-  {
-    "type": "VariableDeclaration",
-    "kind": "var",
-    "declarations": [{
-      "type": "VariableDeclarator",
-      "id": { "type": "Identifier", "name": "module" },
-      "init": {
-        "type": "ObjectExpression",
-        "properties": []
+wrapModuleContents = ({ body, filename = '', dirname = '' }) ->
+  return [
+    {
+      "type": "VariableDeclaration",
+      "kind": "var",
+      "declarations": [{
+        "type": "VariableDeclarator",
+        "id": { "type": "Identifier", "name": "module" },
+        "init": {
+          "type": "ObjectExpression",
+          "properties": []
+        }
+      }],
+    }, {
+      "type": "VariableDeclaration",
+      "kind": "var",
+      "declarations": [{
+        "type": "VariableDeclarator",
+        "id": { "type": "Identifier", "name": "__filename" },
+        "init": { "type": "Literal", "value": filename, }
+      }],
+    }, {
+      "type": "VariableDeclaration",
+      "kind": "var",
+      "declarations": [{
+        "type": "VariableDeclarator",
+        "id": { "type": "Identifier", "name": "__dirname" },
+        "init": { "type": "Literal", "value": dirname, }
+      }],
+    },
+  ].concat(body).concat([
+    {
+      "type": "ReturnStatement",
+      "argument": {
+        "type": "MemberExpression",
+        "computed": false,
+        "object": { "type": "Identifier", "name": "module" },
+        "property": { "type": "Identifier", "name": "exports" }
       }
-    }],
-  }, {
-    "type": "VariableDeclaration",
-    "kind": "var",
-    "declarations": [{
-      "type": "VariableDeclarator",
-      "id": { "type": "Identifier", "name": "__filename" },
-      "init": { "type": "Literal", "value": filename, }
-    }],
-  }, {
-    "type": "VariableDeclaration",
-    "kind": "var",
-    "declarations": [{
-      "type": "VariableDeclarator",
-      "id": { "type": "Identifier", "name": "__dirname" },
-      "init": { "type": "Literal", "value": dirname, }
-    }],
-  },
-  body...,
-  {
-    "type": "ReturnStatement",
-    "argument": {
-      "type": "MemberExpression",
-      "computed": false,
-      "object": { "type": "Identifier", "name": "module" },
-      "property": { "type": "Identifier", "name": "exports" }
     }
-  }
-]
+  ])
 
 generateRequirerFunction = ({ slug, dirname, filename, body }) -> [
   {

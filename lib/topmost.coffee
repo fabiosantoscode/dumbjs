@@ -1,75 +1,82 @@
-assert = require 'assert'
-escope = require 'escope'
-estraverse = require 'estraverse'
-{ nameSluginator } = require './util'
+assert = require('assert')
+escope = require('escope')
+estraverse = require('estraverse')
+nameSluginator = require('./util').nameSluginator
 
 
 # Shoves functions up, making sure there are no nested functions in the codez
 
 module.exports = (programNode) ->
-  assert typeof programNode.body.length is 'number'
+  assert(typeof programNode.body.length == 'number')
   insertFuncs = []
   insertVars = []
   changeNames = []
   currentIdx = 0
   scopeMan = escope.analyze programNode
   scopeStack = [ scopeMan.acquire(programNode) ]
-  currentScope = () -> scopeStack[scopeStack.length - 1]
+  currentScope = () ->
+    return scopeStack[scopeStack.length - 1]
   generateName = nameSluginator('_flatten_')
 
-  estraverse.traverse programNode,
+  estraverse.traverse(programNode, {
     enter: (node) ->
-      if /Function/.test node.type
+      if /Function/.test(node.type)
         scope = scopeMan.acquire(node)
-        if scope.type is 'function-expression-name'
+        if scope.type == 'function-expression-name'
           scope = scope.childScopes[0]
         scopeStack.push(scope)
     leave: (node, parent) ->
-      if /Function/.test node.type
+      if /Function/.test(node.type)
         scopeStack.pop()
 
-      if parent?.type is 'Program'
-        currentIdx = parent.body.indexOf node
+      if parent && parent.type == 'Program'
+        currentIdx = parent.body.indexOf(node)
         assert currentIdx > -1
 
       # Shove them upwards!
-      if parent?.type isnt 'Program'
-        if node.type is 'FunctionDeclaration'
-          newName = generateName(node.id?.name)
+      if (parent && parent.type) != 'Program'
+        if node.type == 'FunctionDeclaration'
+          newName = generateName(node.id && node.id.name)
           changeNames.push({ id: node.id, name: newName })
           for ref in currentScope().references
             if ref.identifier.name == node.id.name
               changeNames.push({ id: ref.identifier, name: newName })
           insertFuncs.push({ insert: node, into: currentIdx })
-        if node.type is 'FunctionExpression'
-          variable = generateName(node.id?.name)
+        if node.type == 'FunctionExpression'
+          variable = generateName(node.id && node.id.name)
           insertVars.push({ insert: node, into: currentIdx, variable: variable })
 
         if /Function/.test(node.type) and node.id
           functionName = node.id
           scopeInsideFunction = scopeMan.acquire(node)
           for ref in scopeInsideFunction.references
-            if ref.resolved?.defs[0]?.type is 'FunctionName' and
-                ref.resolved?.defs[0]?.node.id is functionName
+            if ref.resolved && ref.resolved.defs[0] &&
+                ref.resolved.defs[0].type == 'FunctionName' and
+                ref.resolved.defs[0].node.id == functionName
               changeNames.push({ id: ref.identifier, name: newName })
+  })
 
-  estraverse.replace programNode,
+  estraverse.replace(programNode, {
     leave: (node, parent) ->
       for { insert } in insertFuncs
-        if node is insert
-          @remove()
-          return undefined
+        if node == insert
+          return this.remove()
       for { insert, variable } in insertVars
-        if node is insert
+        if node == insert
           return { type:'Identifier', name: variable }
       return node
+  })
 
-  changeNames.forEach ({ id, name }) -> id.name = name
-  insertFuncs.forEach ({ insert, into }) -> programNode.body.splice(into, 0, insert)
-  insertVars.forEach ({ insert, into, variable }) ->
-    programNode.body.splice(into, 0, makeDeclaration(variable, insert))
+  changeNames.forEach((toChange) ->
+    toChange.id.name = toChange.name
+  )
+  insertFuncs.forEach((toInsert) -> programNode.body.splice(toInsert.into, 0, toInsert.insert))
+  insertVars.forEach((toInsert) ->
+    programNode.body.splice(toInsert.into, 0, makeDeclaration(toInsert.variable, toInsert.insert))
+  )
 
-makeDeclaration = (name, value) -> {
+makeDeclaration = (name, value) ->
+  return {
     type: "VariableDeclaration",
     kind: "var",
     declarations: [{

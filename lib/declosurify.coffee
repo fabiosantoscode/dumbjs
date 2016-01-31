@@ -6,8 +6,11 @@ tern = require 'tern/lib/infer'
 # Every function that has an execution environment will save their shit in a _closure
 # variable.
 
-module.exports = (args...) ->
-  tern.withContext(new tern.Context(), () -> _declosurify(args...))
+module.exports = () ->
+  args = [].slice.call(arguments)
+  tern.withContext(new tern.Context(), () ->
+    return _declosurify.apply(null, args)
+  )
 
 _declosurify = (programNode, opt = {}) ->
   scopeMan = escope.analyze programNode
@@ -15,11 +18,17 @@ _declosurify = (programNode, opt = {}) ->
 
   scope_stack = []  # From outermost to innermost, the lexical scopes
   escope_scope_stack = [ scopeMan.acquire(programNode) ]
-  escope_scope = () -> escope_scope_stack[escope_scope_stack.length - 1]
-  current_scope = () -> scope_stack[scope_stack.length - 1]
-  upper_scope = () -> scope_stack[scope_stack.length - 2]
+  escope_scope = () ->
+    return escope_scope_stack[escope_scope_stack.length - 1]
+  current_scope = () ->
+    return scope_stack[scope_stack.length - 1]
+  upper_scope = () ->
+    return scope_stack[scope_stack.length - 2]
+
   _counter = 0
-  closure_name = () -> "_closure_#{_counter++}"
+  closure_name = () ->
+    return "_closure_#{_counter++}"
+
   scope_of_function = (node) ->
     scope = scopeMan.acquire(node)
     if scope.type is 'function-expression-name'
@@ -30,8 +39,7 @@ _declosurify = (programNode, opt = {}) ->
     assert typeof name is 'string'
     i = scope_stack.length
     while i--
-      { props, fnType, originNode } = scope_stack[i]
-      if props[name] or (name in fnType.argNames)
+      if scope_stack[i].props[name] || (name in scope_stack[i].fnType.argNames)
         return scope_stack[i]
 
       if name in functions_declared(scope_stack[i].originNode)
@@ -47,7 +55,7 @@ _declosurify = (programNode, opt = {}) ->
       enter: (node) ->
         if node is functionNode
           return
-        if node.type is 'FunctionDeclaration' and node.id
+        if node.type is 'FunctionDeclaration' && node.id
           funcs.push node.id.name
         if /Function/.test(node.type)
           return @skip()
@@ -56,10 +64,11 @@ _declosurify = (programNode, opt = {}) ->
 
   current_function = () -> scope_stack[scope_stack.length - 1].originNode
 
-  chain_of_scopes_using_upper_closure = (_from = 2) ->
+  chain_of_scopes_using_upper_closure = (_from) ->
+    _from = _from || 2
     tern_scope = scope_stack[scope_stack.length - _from]
     # TODO below line works works but depends on mutable state.
-    uses_upper_closure = tern_scope?.originNode.params[0]?.name is '_closure'
+    uses_upper_closure = tern_scope && tern_scope.originNode.params[0]?.name is '_closure'
     if uses_upper_closure
       return [tern_scope].concat(chain_of_scopes_using_upper_closure(_from + 1))
     if tern_scope
@@ -100,8 +109,8 @@ _declosurify = (programNode, opt = {}) ->
     if opt.always_create_closures
       return true
     for ref in escope_scope().references
-      if ref.resolved and
-          ref.resolved.stack isnt true and
+      if ref.resolved &&
+          ref.resolved.stack isnt true &&
           is_above(ref.resolved.scope, escope_scope())
         return true
     for through in escope_scope().through
@@ -112,12 +121,12 @@ _declosurify = (programNode, opt = {}) ->
   ident_to_member_expr = (node) ->
     identScope = scope_with(node.name)
     if identScope
-      lookInClosuresArgument = (opt.recursiveClosures isnt false) and
+      lookInClosuresArgument = (opt.recursiveClosures isnt false) &&
         (current_scope() isnt identScope)
-      if lookInClosuresArgument and upper_scope() is identScope
+      if lookInClosuresArgument && upper_scope() is identScope
         # The closure is the outer closure, which was passed as the "_closure" argument
         return member_expr('_closure', node.name)
-      else if lookInClosuresArgument and upper_scope() isnt identScope
+      else if lookInClosuresArgument && upper_scope() isnt identScope
         # The closure is out of the upper closure
         return member_expr(
           member_expr('_closure', identScope.name),
@@ -141,7 +150,7 @@ _declosurify = (programNode, opt = {}) ->
           })
 
         if this_function_needs_to_take_closure()
-          if parent isnt programNode and
+          if parent isnt programNode &&
               opt.recursiveClosures isnt false
             node.params.unshift({ type: 'Identifier', name: '_closure' })
 
@@ -152,7 +161,7 @@ _declosurify = (programNode, opt = {}) ->
         scope_stack.pop()
         return
 
-      if global?.it and scope_stack.length
+      if global?.it && scope_stack.length
         # a dumb but effective way to test these functions
         if current_function().id?.name is 'immuneToGetting'
           assert(this_function_needs_to_pass_closure(), '1')
@@ -179,14 +188,14 @@ _declosurify = (programNode, opt = {}) ->
           assert(!this_function_needs_to_pass_closure(), '15')
           assert(this_function_needs_to_take_closure(), '16')
 
-      if node.type in ['Identifier'] and
-          current_scope() and
-          not /Function/.test(parent.type) and
-          # parent.type isnt 'VariableDeclarator' and
-          (this_function_needs_to_take_closure() or this_function_needs_to_pass_closure())
+      if node.type in ['Identifier'] &&
+          current_scope() &&
+          not /Function/.test(parent.type) &&
+          # parent.type isnt 'VariableDeclarator' &&
+          (this_function_needs_to_take_closure() || this_function_needs_to_pass_closure())
         return ident_to_member_expr(node)
 
-      if node.type is 'BlockStatement' and
+      if node.type is 'BlockStatement' &&
           this_function_needs_to_pass_closure()
         node.closure = null
         bod = []
@@ -206,11 +215,11 @@ _declosurify = (programNode, opt = {}) ->
         for _node in node.body
           if _node.type is 'VariableDeclaration'
             for decl in _node.declarations
-              init = decl.init or 'undefined'
+              init = decl.init || 'undefined'
               bod.push assignment(decl.id, init)
-          else if _node.type is 'ForStatement' and _node.init?.type is 'VariableDeclaration'
+          else if _node.type is 'ForStatement' && _node.init?.type is 'VariableDeclaration'
             for decl in _node.init.declarations
-              bod.push assignment(decl.id, decl.init or 'undefined')
+              bod.push assignment(decl.id, decl.init || 'undefined')
             _node.init = null
             bod.push(_node)
           else
@@ -220,8 +229,8 @@ _declosurify = (programNode, opt = {}) ->
       return node
 
   for { func, closureName, scopesAbove } in to_unshift
-    if opt.recursiveClosures isnt false and
-        scopesAbove.length isnt 0 and
+    if opt.recursiveClosures isnt false &&
+        scopesAbove.length isnt 0 &&
         func.params[0]?.name is '_closure'
       [upperClosure, otherClosures...] = scopesAbove
       otherClosures.reverse()  # just so the the assignments are in a prettier order
@@ -241,15 +250,17 @@ _declosurify = (programNode, opt = {}) ->
     func.body.body.unshift object_decl(closureName)
 
 object_decl = (name) ->
-  type: "VariableDeclaration",
-  kind: "var"
-  declarations: [
-    type: "VariableDeclarator",
-    id: identIfString(name),
-    init:
-      type: "ObjectExpression",
-      properties: []
-  ],
+  return {
+    type: "VariableDeclaration",
+    kind: "var"
+    declarations: [
+      type: "VariableDeclarator",
+      id: identIfString(name),
+      init:
+        type: "ObjectExpression",
+        properties: []
+    ],
+  }
 
 identIfString = (ast) ->
   if typeof ast is 'string'
@@ -259,24 +270,28 @@ identIfString = (ast) ->
 member_expr = (left, right) ->
   assert left, 'member_expr: left is ' + left
   assert right, 'member_expr: right is ' + right
-  type: "MemberExpression",
-  computed: false,
-  object: identIfString(left),
-  property: identIfString(right),
+  return {
+    type: "MemberExpression",
+    computed: false,
+    object: identIfString(left),
+    property: identIfString(right),
+  }
 
 assignment = (left, right) ->
-  type: "ExpressionStatement",
-  expression:
-    type: "AssignmentExpression",
-    operator: '=',
-    left: identIfString(left),
-    right: identIfString(right),
+  return {
+    type: "ExpressionStatement",
+    expression:
+      type: "AssignmentExpression",
+      operator: '=',
+      left: identIfString(left),
+      right: identIfString(right),
+  }
 
 is_above = (above, scope) ->
-  assert scope, 'scope is ' + scope
-  assert above, 'above is ' + above
-  assert scope.upper isnt undefined, 'scope is not a scope, its .upper is ' + scope.upper
-  assert above.upper isnt undefined, 'above is not a scope, its .upper is ' + above.upper
+  assert(scope, 'scope is ' + scope)
+  assert(above, 'above is ' + above)
+  assert(scope.upper != undefined, 'scope is not a scope, its .upper is ' + scope.upper)
+  assert(above.upper != undefined, 'above is not a scope, its .upper is ' + above.upper)
   while scope
     scope = scope.upper
     if scope is above
