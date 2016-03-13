@@ -27,7 +27,7 @@ compileAndCheck = (before, after, opt = {}) ->
     .replace /\}, \{\} ] \}, \{\}, \[.+/, ''
   jseq js, after
 
-describe 'dumbjs', ->
+describe 'core', ->
   it 'turns function declarations into variable declarations', ->
     compileAndCheck 'function lel () { }',
       'var lel = function () { };',
@@ -45,6 +45,7 @@ describe 'dumbjs', ->
 
   it 'polyfills regexps with xregexp'
 
+describe 'topmost', () ->
   it 'puts functions at the topmost level', () ->
     code1 = esprima.parse '
       function x() {
@@ -162,35 +163,7 @@ describe 'dumbjs', ->
       }
     ')
 
-  it 'creates objects for closures, turns every reference into an object access', () ->
-    code1 = esprima.parse '
-      function x() {
-        var foo = 5,
-            bar = 6;
-        function y() {
-          return foo + bar;
-        }
-        foo = 6;
-        return y;
-      }
-    '
-
-    declosurify code1, { params: false, fname: false, recursiveClosures: false }
-    code1 = escodegen.generate code1
-
-    jseq code1, '
-      function x() {
-        var _closure_0 = {};
-        _closure_0.foo = 5;
-        _closure_0.bar = 6;
-        function y() {
-          return _closure_0.foo + _closure_0.bar;
-        }
-        _closure_0.foo = 6;
-        return _closure_0.y;
-      }
-    '
-
+describe 'ownfunction', () ->
   it 'puts accesses to own function name in the outside closure, in a variable named _ownfunction_*', () ->
     code1 = esprima.parse '
       function x() {
@@ -231,7 +204,35 @@ describe 'dumbjs', ->
       }
     ')
 
-  it 'can also turn function decls (IE: not variable decls) into object assignments'
+describe 'declosurify', () ->
+  it 'creates objects for closures, turns every reference into an object access', () ->
+    code1 = esprima.parse '
+      function x() {
+        var foo = 5,
+            bar = 6;
+        function y() {
+          return foo + bar;
+        }
+        foo = 6;
+        return y;
+      }
+    '
+
+    declosurify code1, { params: false, fname: false, recursiveClosures: false }
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x() {
+        var _closure_0 = {};
+        _closure_0.foo = 5;
+        _closure_0.bar = 6;
+        function y() {
+          return _closure_0.foo + _closure_0.bar;
+        }
+        _closure_0.foo = 6;
+        return _closure_0.y;
+      }
+    '
 
   it 'makes non-top functions take a "_closure" parameter which is the upper closure', () ->
     code1 = esprima.parse '
@@ -495,7 +496,7 @@ describe 'dumbjs', ->
       }
     ')
 
-
+describe 'bindify', () ->
   it 'binds _flatten_* function to their current _closure_*', () ->
     code1 = esprima.parse '
       function _flatten_0(_closure) { return _closure_0.x; }
@@ -566,6 +567,7 @@ describe 'dumbjs', ->
       };
     '
 
+describe 'depropinator', () ->
   it 'Turns object declarations into iifes', () ->
     code1 = esprima.parse '
       var x = { foo: "bar", baz: -1 };
@@ -583,6 +585,7 @@ describe 'dumbjs', ->
       }()
     '
 
+describe 'requireObliteratinator', () ->
   it 'turns modules into functions that return modules', () ->
     code1 = esprima.parse '
       foobarbaz();
@@ -676,6 +679,8 @@ describe 'dumbjs', ->
     ok rfsCalled, 'readFileSync was called'
     ok recursed, 'function recursed into itself'
 
+
+describe 'assertions', () ->
   it 'screams at you for using globals'
 
   it 'screams at you for using eval, arguments, this, reserved names (_closure_, _closure, _flatten_, _ownfunction_)'
