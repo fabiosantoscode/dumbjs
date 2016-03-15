@@ -7,6 +7,7 @@ requireObliteratinator = require '../lib/require-obliteratinator'
 topmost = require '../lib/topmost'
 declosurify = require '../lib/declosurify'
 ownfunction = require '../lib/ownfunction'
+thatter = require '../lib/thatter'
 bindify = require '../lib/bindify'
 bindifyPrelude = require '../lib/bindify-prelude'
 depropinator = require '../lib/depropinator'
@@ -679,6 +680,105 @@ describe 'requireObliteratinator', () ->
     ok rfsCalled, 'readFileSync was called'
     ok recursed, 'function recursed into itself'
 
+describe 'thatter', () ->
+  it 'this works', () ->
+    arr = []
+    eval(bindifyPrelude + (dumbjs '''
+      var callMe = function() { return this() }
+      var add1 = function(){ return this + 1 }
+      var identity = function() { return this }
+      arr.push(callMe.call(function(){ return 6 }))
+      arr.push([add1][0]())
+      var x = { y: { zed: identity } }
+      arr.push([ x, x.y.zed() ])
+      var foo = function (x) {
+        return this + x;
+      }
+      arr.push(foo.call(1, 4));
+      function bar() {
+        return this
+      }
+      arr.push(bar.call(50))
+    ''') + '\nmain()')
+
+    ok.equal(arr[0], 6)
+    ok(/_self \+ 1/.test(arr[1]), 'couldn\'t find this + 1 in ' + arr[1])
+    ok(/}1$/.test(arr[1]), 'doesnt end in "1" as "+ 1" told it to: ' + arr[1])
+    ok.equal(arr[2][0].y, arr[2][1])
+    ok.equal(arr[3], 5)
+    ok.equal(arr[4], 50)
+
+  it 'turns functions using this into functions with an extra _self argument', () ->
+    code1 = esprima.parse 'var x = function () { return this; }'
+
+    thatter code1
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      var x = function (_self) { return _self; }
+    "
+
+  it 'finds instances of Function.prototype.call', () ->
+    code1 = esprima.parse "
+      var x = function () { return x.call(this, 3, 4); } ;
+      x.call(2, 3, 4) ;
+      var y = x ;
+      y.call(1)
+    "
+
+    thatter code1
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      var x = function (_self) { return x(_self, 3, 4); };
+      x(2, 3, 4);
+      var y = x;
+      y(1)
+    "
+
+  it 'regression: Works inside a main function', () ->
+    code1 = esprima.parse "
+      function main() {
+        function x() { return someObject.x(this) };
+        var someObject = { x: x };
+        someObject.x(1, 2);
+        someObject.y = x;
+        someObject.y(4);
+      }
+    "
+
+    thatter code1
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      function main() {
+        function x(_self) { return x(someObject, _self); } ;
+        var someObject = { x: x };
+        x(someObject, 1, 2);
+        someObject.y = x;
+        x(someObject, 4);
+      }
+    "
+
+  it 'finds function being called on the object', () ->
+    code1 = esprima.parse "
+      function x() { return someObject.x(this) };
+      var someObject = { x: x };
+      someObject.x(1, 2);
+      someObject.y = x;
+      someObject.y(4);
+    "
+
+    thatter code1
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      function x(_self) { return x(someObject, _self); } ;
+      var someObject = { x: x };
+      x(someObject, 1, 2);
+      someObject.y = x;
+      x(someObject, 4)
+    "
 
 describe 'assertions', () ->
   it 'screams at you for using globals'

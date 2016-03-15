@@ -11,6 +11,7 @@ topmost = require './lib/topmost'
 declosurify = require './lib/declosurify'
 bindify = require './lib/bindify'
 mainify = require './lib/mainify'
+thatter = require './lib/thatter'
 depropinator = require './lib/depropinator'
 ownfunction = require './lib/ownfunction'
 
@@ -27,6 +28,9 @@ dumbifyAST = (ast, opt = {}) ->
     clean_ast ast
   if opt.mainify isnt false
     mainify(ast, opt.mainify or {})
+    clean_ast ast
+  if opt.thatter isnt false
+    thatter ast
     clean_ast ast
   if opt.depropinator isnt false
     depropinator ast
