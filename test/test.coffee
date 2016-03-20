@@ -752,11 +752,11 @@ describe 'thatter', () ->
 
     jseq code1, "
       function main() {
-        function x(_self) { return x(someObject, _self); } ;
+        function x(_self) { return someObject.x(someObject, _self); } ;
         var someObject = { x: x };
-        x(someObject, 1, 2);
+        someObject.x(someObject, 1, 2);
         someObject.y = x;
-        x(someObject, 4);
+        someObject.y(someObject, 4);
       }
     "
 
@@ -773,11 +773,11 @@ describe 'thatter', () ->
     code1 = escodegen.generate code1
 
     jseq code1, "
-      function x(_self) { return x(someObject, _self); } ;
+      function x(_self) { return someObject.x(someObject, _self); } ;
       var someObject = { x: x };
-      x(someObject, 1, 2);
+      someObject.x(someObject, 1, 2);
       someObject.y = x;
-      x(someObject, 4)
+      someObject.y(someObject, 4)
     "
 
 describe 'assertions', () ->
