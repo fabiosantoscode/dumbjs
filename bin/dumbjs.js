@@ -3,7 +3,7 @@
 require('coffee-script/register')
 
 var es = require('event-stream')
-var dumbjs = require('../index')
+var dumbjs = require('../lib')
 var fs = require('fs')
 
 var inpt = process.stdin

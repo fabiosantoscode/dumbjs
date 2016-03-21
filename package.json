@@ -2,7 +2,7 @@
   "name": "dumbjs",
   "version": "1.2.0",
   "description": "",
-  "main": "index.js",
+  "main": "lib/index.coffee",
   "scripts": {
     "test": "mocha --compilers coffee:coffee-script/register"
   },

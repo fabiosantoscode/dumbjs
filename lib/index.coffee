@@ -6,14 +6,14 @@ escodegen = require 'escodegen'
 estraverse = require 'estraverse'
 child_process = require 'child_process'
 
-requireObliteratinator = require './lib/require-obliteratinator'
-topmost = require './lib/topmost'
-declosurify = require './lib/declosurify'
-bindify = require './lib/bindify'
-mainify = require './lib/mainify'
-thatter = require './lib/thatter'
-depropinator = require './lib/depropinator'
-ownfunction = require './lib/ownfunction'
+requireObliteratinator = require './require-obliteratinator'
+topmost = require './topmost'
+declosurify = require './declosurify'
+bindify = require './bindify'
+mainify = require './mainify'
+thatter = require './thatter'
+depropinator = require './depropinator'
+ownfunction = require './ownfunction'
 
 clean_ast = (ast) ->
   estraverse.traverse(ast, {
