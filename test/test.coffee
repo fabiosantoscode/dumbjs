@@ -34,6 +34,15 @@ describe 'core', ->
       'var lel = function () { };',
       { topmost: false, declosurify: false, mainify: false, }
 
+  it 'turns multi-variable declarations into multiple single variable declarations', ->
+    compileAndCheck 'var x, y = 6',
+      'var x; var y = 6;',
+      { topmost: false, declosurify: false, mainify: false, }
+
+    compileAndCheck 'for (var x, y = 6;;){}',
+      'var x; var y = 6; for (;;) { }',
+      { topmost: false, declosurify: false, mainify: false, }
+
   it 'removes "use strict" because it\'s always strict', ->
     compileAndCheck '
       "use strict";

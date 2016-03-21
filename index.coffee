@@ -75,9 +75,29 @@ dumbifyAST = (ast, opt = {}) ->
     else if node.type is 'Literal'
       if node.regex
         assert false, 'using regexps is currently not allowed in dumbscript'
-    else if node.type is 'VariableDeclaration'
-      assert node.declarations.length is 1, 'Cannot declare multiple variables at once'
-    else if node.type in ['Program', 'Identifier', 'CallExpression', 'BlockStatement', 'FunctionExpression', 'VariableDeclarator', 'IfStatement', 'UnaryExpression', 'MemberExpression', 'LogicalExpression', 'BinaryExpression', 'ReturnStatement', 'NewExpression', 'ThrowStatement', 'SequenceExpression', 'AssignmentExpression', 'ObjectExpression', 'Property', 'ConditionalExpression', 'ForStatement', 'UpdateExpression', 'ArrayExpression', 'ThisExpression', 'SwitchStatement', 'SwitchCase', 'BreakStatement', 'WhileStatement', 'EmptyStatement']
+    else if node.type in ['Program', 'BlockStatement']
+      declarations_to_declarators = (decls, kind) ->
+        return decls.map (decl) -> {
+          type: 'VariableDeclaration',
+          declarations: [ decl ],
+          kind: kind,
+        }
+      node.body = node.body
+        .map (node) ->
+          if node.type is 'VariableDeclaration' and node.declarations.length isnt 1
+            return declarations_to_declarators(node.declarations, node.kind)
+          if node.type is 'ForStatement' and node.init?.type is 'VariableDeclaration' and node.init.declarations.length isnt 1
+            init = node.init;
+            node.init = null;
+            return declarations_to_declarators(init.declarations, init.kind).concat([node])
+          else
+            return [node]
+        .reduce(
+          (accum, b) -> accum.concat(b),
+          []
+        )
+      return node
+    else if node.type in ['Program', 'Identifier', 'CallExpression', 'BlockStatement', 'FunctionExpression', 'VariableDeclaration', 'VariableDeclarator', 'IfStatement', 'UnaryExpression', 'MemberExpression', 'LogicalExpression', 'BinaryExpression', 'ReturnStatement', 'NewExpression', 'ThrowStatement', 'SequenceExpression', 'AssignmentExpression', 'ObjectExpression', 'Property', 'ConditionalExpression', 'ForStatement', 'UpdateExpression', 'ArrayExpression', 'ThisExpression', 'SwitchStatement', 'SwitchCase', 'BreakStatement', 'WhileStatement', 'EmptyStatement']
       return node
     else
       throw new Error('Unknown node type ' + node.type + ' in ' + node)
