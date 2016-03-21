@@ -11,7 +11,6 @@ thatter = require '../lib/thatter'
 bindify = require '../lib/bindify'
 bindifyPrelude = require '../lib/bindify-prelude'
 depropinator = require '../lib/depropinator'
-flatten = require '../bin/flatten.js'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
