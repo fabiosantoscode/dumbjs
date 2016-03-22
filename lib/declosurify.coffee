@@ -169,9 +169,6 @@ _declosurify = (programNode, opt = {}) ->
         if current_function().id?.name is 'immuneToPassing'
           assert(!this_function_needs_to_pass_closure(), '3')
           assert(this_function_needs_to_take_closure(), '4')
-        if current_function().id?.name is 'dontPassMe'
-          assert(!this_function_needs_to_pass_closure(), '5')
-          assert(!this_function_needs_to_take_closure(), '6')
         if current_function().id?.name is 'maker'
           assert(this_function_needs_to_pass_closure(), '7')
           assert(!this_function_needs_to_take_closure(), '8')
