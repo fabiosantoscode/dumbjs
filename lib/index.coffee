@@ -38,7 +38,6 @@ dumbifyAST = (ast, opt = {}) ->
   if opt.declosurify isnt false  # this one is not really a pass, it's a pre-declosurify operation
     ownfunction ast
     clean_ast ast
-  if opt.declosurify isnt false
     declosurify ast
     clean_ast ast
   if opt.topmost isnt false
