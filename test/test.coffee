@@ -380,6 +380,39 @@ describe 'declosurify', () ->
       }
     '
 
+  it 'regression: Only closurify identifiers which are references to variables', () ->
+    code1 = esprima.parse '
+      function x() {
+        var EventEmitter = function EventEmitter() {
+        };
+        EventEmitter.EventEmitter = EventEmitter;
+        var defaultMaxListeners = 10;
+        var $getMaxListeners = function $getMaxListeners(that) {
+          if (that._maxListeners === undefined)
+            return EventEmitter.defaultMaxListeners;
+          return that._maxListeners;
+        };
+      }
+    '
+
+    declosurify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function x() {
+        var _closure_0 = {};
+        _closure_0.EventEmitter = function EventEmitter() {
+        };
+        _closure_0.EventEmitter.EventEmitter = _closure_0.EventEmitter;
+        _closure_0.defaultMaxListeners = 10;
+        _closure_0.$getMaxListeners = function $getMaxListeners(_closure, that) {
+          if (that._maxListeners === undefined)
+            return _closure.EventEmitter.defaultMaxListeners;
+          return that._maxListeners;
+        };
+      }
+    '
+
   it 'deeply assigns closures above it to its own closure', () ->
     code1 = esprima.parse '
       function x() {

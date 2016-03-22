@@ -187,8 +187,7 @@ _declosurify = (programNode, opt = {}) ->
 
       if node.type in ['Identifier'] &&
           current_scope() &&
-          not /Function/.test(parent.type) &&
-          # parent.type isnt 'VariableDeclarator' &&
+          is_variable_reference(node, parent) &&
           (this_function_needs_to_take_closure() || this_function_needs_to_pass_closure())
         return ident_to_member_expr(node)
 
@@ -262,6 +261,8 @@ object_decl = (name) ->
 identIfString = (ast) ->
   if typeof ast is 'string'
     return { type: 'Identifier', name: ast }
+  if ast.type is 'Identifier'
+    return { type: 'Identifier', name: ast.name }
   return ast
 
 member_expr = (left, right) ->
@@ -283,6 +284,20 @@ assignment = (left, right) ->
       left: identIfString(left),
       right: identIfString(right),
   }
+
+is_variable_reference = (node, parent) ->
+  assert node.type is 'Identifier'
+  if /Function/.test parent.type
+    # I'm the argument or name of a function
+    return false
+  if parent.type is 'MemberExpression'
+    # Not all identifiers in MemberExpression s are variables, only when:
+    return (
+      parent.object is node or  # - identifier is the leftmost in the membex
+      (parent.computed and parent.property is node)  # - identifier is in square brackets ( foo[x] )
+    )
+  # Everything else is a variable reference. Probably.
+  return true
 
 is_above = (above, scope) ->
   assert(scope, 'scope is ' + scope)
