@@ -631,6 +631,28 @@ describe 'bindify', () ->
       };
     '
 
+  it 'avoids writing BIND(_closure, XXX)(ARGS...), just writes XXX(_closure, ARGS...)', () ->
+    code1 = esprima.parse '
+      var _closure_0 = {};
+      _closure_0.prefix = \'-\';
+      var _flatten_x = function x(_closure, a) {
+        return prefix + typeof a;
+      };
+      _flatten_x(1);
+    '
+
+    bindify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      var _closure_0 = {};
+      _closure_0.prefix = \'-\';
+      var _flatten_x = function x(_closure, a) {
+        return prefix + typeof a;
+      };
+      _flatten_x(_closure_0, 1);
+    '
+
 describe 'depropinator', () ->
   it 'Turns object declarations into iifes', () ->
     code1 = esprima.parse '
