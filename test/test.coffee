@@ -653,6 +653,36 @@ describe 'bindify', () ->
       _flatten_x(_closure_0, 1);
     '
 
+  it 'regression: allows variables to be stored elsewhere', () ->
+    code1 = esprima.parse '
+      function _flatten_x(_closure, a) {
+        return _closure.prefix + typeof a;
+      }
+      function main() {
+        var _closure_0 = {};
+        _closure_0.prefix = \'-\';
+        var y = _flatten_x;
+        console.log(y(1));
+        console.log(y(\'lel\'));
+      }
+    '
+
+    bindify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function _flatten_x(_closure, a) {
+        return _closure.prefix + typeof a;
+      }
+      function main() {
+        var _closure_0 = {};
+        _closure_0.prefix = \'-\';
+        var y = BIND(_flatten_x, _closure_0);
+        console.log(y(1));
+        console.log(y(\'lel\'));
+      }
+    '
+
 describe 'depropinator', () ->
   it 'Turns object declarations into iifes', () ->
     code1 = esprima.parse '
