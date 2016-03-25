@@ -801,7 +801,7 @@ describe 'functional tests', () ->
 
   it 'require() works', () ->
     XFOO = null
-    code = dumbjs 'XFOO=require("../test/some.js");'  # actual file in this directory
+    code = dumbjs 'XFOO=require("./some.js");', { filename: __filename }  # actual file in this directory
     eval(bindifyPrelude + code + '\nmain()')
     ok.equal XFOO(), 'xfoo'
 

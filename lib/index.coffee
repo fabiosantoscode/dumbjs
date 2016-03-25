@@ -24,7 +24,7 @@ clean_ast = (ast) ->
 
 dumbifyAST = (ast, opt = {}) ->
   if opt.requireObliteratinator isnt false
-    ast = requireObliteratinator ast
+    ast = requireObliteratinator ast, { filename: opt.filename or '' }
     clean_ast ast
   if opt.mainify isnt false
     mainify(ast, opt.mainify or {})

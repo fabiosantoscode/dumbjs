@@ -17,7 +17,7 @@ module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, file
   justTheFilename = path.basename(filename)
 
   otherModules = []
-  findModules ast, resolve, (resolvedFilename) ->
+  findModules ast, resolve, dirname, (resolvedFilename) ->
     _slug = foundModules[resolvedFilename]
     if not _recurse
       _recurse = module.exports
@@ -52,7 +52,7 @@ module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, file
 
   return ast
 
-findModules = (ast, resolve, getModuleSlug) ->
+findModules = (ast, resolve, dirname, getModuleSlug) ->
   estraverse.replace(ast, {
     leave: (node) ->
       # TODO check for things called "require" in the same scope
@@ -60,7 +60,7 @@ findModules = (ast, resolve, getModuleSlug) ->
           node.callee.name is 'require' and
           node.arguments.length is 1 and
           node.arguments[0].type is 'Literal'
-        newName = getModuleSlug(resolve(node.arguments[0].value))
+        newName = getModuleSlug(resolve(node.arguments[0].value, { basedir: dirname }))
         if newName
           return {
             type: 'CallExpression',

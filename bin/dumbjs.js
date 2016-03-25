@@ -7,8 +7,11 @@ var dumbjs = require('../lib')
 var fs = require('fs')
 
 var inpt = process.stdin
-if (process.argv.length > 2)
+var inptFname = process.cwd() + '/-'
+if (process.argv.length > 2) {
     inpt = fs.createReadStream(process.argv[2])
+    inptFname = process.argv[2]
+}
 
 var outpt = process.stdout
 if (process.argv.length > 3)
@@ -19,5 +22,5 @@ inpt.pipe(es.wait(function(err, js) {
         console.error(err)
         return
     }
-    process.stdout.write(dumbjs(js) + '\n')
+    process.stdout.write(dumbjs(js, { filename: inptFname }) + '\n')
 }))
