@@ -39,11 +39,12 @@ _declosurify = (programNode, opt = {}) ->
     assert typeof name is 'string'
     i = scope_stack.length
     while i--
-      if scope_stack[i].props[name] || (name in scope_stack[i].fnType.argNames)
+      if scope_has_name(scope_stack[i], name)
         return scope_stack[i]
 
-      if name in functions_declared(scope_stack[i].originNode)
-        return scope_stack[i]
+  scope_has_name = (scope, name) ->
+    return !!(scope.props[name] || (name in scope.fnType.argNames) || name in functions_declared(scope.originNode))
+
 
   functions_declared = (functionNode) ->
     if opt.funcs is false
