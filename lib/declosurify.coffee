@@ -45,6 +45,15 @@ _declosurify = (programNode, opt = {}) ->
   scope_has_name = (scope, name) ->
     return !!(scope.props[name] || (name in scope.fnType.argNames) || name in functions_declared(scope.originNode))
 
+  scope_below_using = (scope, name, _is_first = true) ->
+    if not _is_first
+      was_declared = scope.variables.some((variable) -> variable.name is name)
+      if was_declared  # the name was declared here, so
+        return false   # we can say this scope doesn't use the outside name
+      was_used = scope.references.some((ref) -> ref.identifier.name is name)
+      if was_used
+        return true
+    return scope.childScopes.some((s) -> scope_below_using(s, name, false))
 
   functions_declared = (functionNode) ->
     if opt.funcs is false
@@ -185,11 +194,14 @@ _declosurify = (programNode, opt = {}) ->
         if current_function().id?.name is 'passMe'
           assert(!this_function_needs_to_pass_closure(), '15')
           assert(this_function_needs_to_take_closure(), '16')
+        if current_function().id?.name is 'passesZee'
+          assert(scope_below_using(escope_scope(), 'z'))
+          assert(!scope_below_using(escope_scope(), 'y'))
 
       if node.type in ['Identifier'] &&
           current_scope() &&
           is_variable_reference(node, parent) &&
-          (this_function_needs_to_take_closure() || this_function_needs_to_pass_closure())
+          (this_function_needs_to_take_closure() || (this_function_needs_to_pass_closure() && scope_below_using(escope_scope(), node.name)))
         return ident_to_member_expr(node)
 
       if node.type is 'BlockStatement' &&
@@ -199,24 +211,32 @@ _declosurify = (programNode, opt = {}) ->
         if parent.type in ['FunctionDeclaration', 'FunctionExpression']
           if opt.params != false
             for param in parent.params
-              if param.name isnt '_closure'
-                bod.push assignment(
-                  member_expr(scope_with(param.name).name, param.name),
-                  param)
+              if scope_below_using(escope_scope(), param.name)
+                if param.name isnt '_closure'
+                  bod.push assignment(
+                    member_expr(scope_with(param.name).name, param.name),
+                    param)
           if opt.fname != false
             for funct in functions_declared(node)
-              bod.push assignment(
-                member_expr(current_scope().name, funct),
-                funct)
+              if scope_below_using(escope_scope(), funct)
+                bod.push assignment(
+                  member_expr(current_scope().name, funct),
+                  funct)
+
+        assign_to_closure_or_declare = (id, init = 'undefined') ->
+          if id.type is 'MemberExpression'
+            return assignment(id, init)
+          else
+            assert.equal id.type, 'Identifier'
+            return declaration(id.name, init)
 
         for _node in node.body
           if _node.type is 'VariableDeclaration'
             for decl in _node.declarations
-              init = decl.init || 'undefined'
-              bod.push assignment(decl.id, init)
+              bod.push assign_to_closure_or_declare(decl.id, decl.init)
           else if _node.type is 'ForStatement' && _node.init?.type is 'VariableDeclaration'
             for decl in _node.init.declarations
-              bod.push assignment(decl.id, decl.init || 'undefined')
+              bod.push assign_to_closure_or_declare(decl.id, decl.init)
             _node.init = null
             bod.push(_node)
           else
@@ -246,18 +266,23 @@ _declosurify = (programNode, opt = {}) ->
 
     func.body.body.unshift object_decl(closureName)
 
-object_decl = (name) ->
+declaration = (name, init) ->
   return {
     type: "VariableDeclaration",
     kind: "var"
     declarations: [
       type: "VariableDeclarator",
       id: identIfString(name),
-      init:
-        type: "ObjectExpression",
-        properties: []
+      init: init
     ],
   }
+
+object_decl = (name) ->
+  return declaration(name, {
+    type: "ObjectExpression",
+    properties: []
+  })
+
 
 identIfString = (ast) ->
   if typeof ast is 'string'

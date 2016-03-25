@@ -239,7 +239,7 @@ describe 'declosurify', () ->
           return _closure_0.foo + _closure_0.bar;
         }
         _closure_0.foo = 6;
-        return _closure_0.y;
+        return y;
       }
     '
 
@@ -323,11 +323,10 @@ describe 'declosurify', () ->
       function thing(x) {
         var _closure_0 = {};
         _closure_0.x = x;
-        _closure_0.y = y;
         function y(_closure) {
           return _closure.x - 1;
         }
-        return _closure_0.y();
+        return y();
       }
     '
 
@@ -348,6 +347,31 @@ describe 'declosurify', () ->
         return function y(_closure) {
           var _closure_1 = {};
           _closure_1._closure_0 = _closure;
+        };
+      }
+    '
+
+  it 'knows which variables to put in _closure', () ->
+    code1 = esprima.parse '
+      function passesZee() {
+        var y = 4;
+        var z = 6;
+        return function foo() {
+          return z;
+        }
+      }
+    '
+
+    declosurify code1, { fname: false, params: false }
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      function passesZee() {
+        var _closure_0 = {};
+        var y = 4;
+        _closure_0.z = 6;
+        return function foo(_closure) {
+          return _closure.z;
         };
       }
     '
@@ -404,8 +428,8 @@ describe 'declosurify', () ->
         _closure_0.EventEmitter = function EventEmitter() {
         };
         _closure_0.EventEmitter.EventEmitter = _closure_0.EventEmitter;
-        _closure_0.defaultMaxListeners = 10;
-        _closure_0.$getMaxListeners = function $getMaxListeners(_closure, that) {
+        var defaultMaxListeners = 10;
+        var $getMaxListeners = function $getMaxListeners(_closure, that) {
           if (that._maxListeners === undefined)
             return _closure.EventEmitter.defaultMaxListeners;
           return that._maxListeners;
@@ -518,8 +542,6 @@ describe 'declosurify', () ->
     jseq(code1, '
       function main() {
         var _closure_0 = {};
-        _closure_0.maker4 = maker4;
-        _closure_0.xaero = xaero;
         function maker4(start) {
           var _closure_1 = {};
           _closure_1.start = start;
@@ -534,7 +556,7 @@ describe 'declosurify', () ->
         function xaero(_closure, n) {
           return _closure.obj;
         }
-        _closure_0.obj = _closure_0.maker4(5);
+        _closure_0.obj = maker4(5);
       }
     ')
 
@@ -919,30 +941,6 @@ describe 'functional tests', () ->
       arr.push(incrementor())
       arr.push(incrementor())
     '''
-
-    jseq(dumbjs(first_chunk + second_chunk), '''
-      var _flatten_bar = function bar(_closure) {
-          return _closure.start++;
-      };
-      var _flatten_inc = function (start) {
-          var _closure_1 = {};
-          _closure_1.start = start;
-          return BIND(_flatten_bar, _closure_1);
-      };
-      var _flatten_fib = function (_closure, n) {
-          return n == 0 ? 0 : n == 1 ? 1 : _closure._ownfunction_0(n - 1) + _closure._ownfunction_0(n - 2);
-      };
-      var main = function () {
-          var _closure_0 = {};
-          _closure_0.fib = BIND(_flatten_fib, _closure_0);
-          _closure_0.inc = _flatten_inc;
-          _closure_0._ownfunction_0 = _closure_0.fib;
-          _closure_0.incrementor = _closure_0.inc(-1);
-          arr.push(_closure_0.incrementor());
-          arr.push(_closure_0.incrementor());
-          arr.push(_closure_0.incrementor());
-      };
-    ''')
 
     arr = []
     eval(bindifyPrelude + dumbjs(first_chunk + second_chunk) + ';main()')
