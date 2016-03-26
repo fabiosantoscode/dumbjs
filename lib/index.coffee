@@ -101,21 +101,22 @@ dumbifyAST = (ast, opt = {}) ->
     else
       throw new Error('Unknown node type ' + node.type + ' in ' + node)
 
-acornOpts = {
+esprimaOpts = {
   sourceType: 'module',
   ecmaVersion: 6,
   allowReturnOutsideFunction: true,
   allowHashBang: true,
-  locations: true
+  locations: true,
+  attachComment: true,
 }
 
 dumbify = (js, opt = {}) ->
   mayContainRequire = /require\s*?\(/m.test js
-  ast = esprima.parse(js, acornOpts)
+  ast = esprima.parse(js, esprimaOpts)
   if mayContainRequire is false
     opt.requireObliteratinator = false
   ast = dumbifyAST ast, opt
-  return escodegen.generate ast
+  return escodegen.generate ast, { comment: true }
 
 module.exports = dumbify
 module.exports.dumbify = dumbify
