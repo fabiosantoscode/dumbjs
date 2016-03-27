@@ -4,6 +4,7 @@ ok = require 'assert'
 estraverse = require 'estraverse'
 dumbjs = require '../lib'
 requireObliteratinator = require '../lib/require-obliteratinator'
+typeConversions = require '../lib/type-conversions'
 topmost = require '../lib/topmost'
 declosurify = require '../lib/declosurify'
 ownfunction = require '../lib/ownfunction'
@@ -53,6 +54,172 @@ describe 'core', ->
       { topmost: false, declosurify: false, mainify: false, }
 
   it 'polyfills regexps with xregexp'
+
+describe 'typeConversions', () ->
+  it 'turns numbers into strings when adding them to strings', ->
+    code1 = esprima.parse '
+      var x = 1;
+      x + \'\';
+      \'\' + x + 2 + 3;
+      1 + \'\' + 1;
+    '
+
+    typeConversions code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      var x = 1;
+      String(x) + \'\';
+      \'\' + String(x) + String(2) + String(3);
+      String(1) + \'\' + String(1);
+    '
+
+  it 'turns strings into numbers when dividing, subtracting or multiplying', ->
+    code1 = esprima.parse '
+      var x = \'2\';
+      x * 2;
+      x / 2;
+      x - 2;
+      2 * x;
+      2 / x;
+      2 - x;
+    '
+
+    typeConversions code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      var x = \'2\';
+      Number(x) * 2;
+      Number(x) / 2;
+      Number(x) - 2;
+      2 * Number(x);
+      2 / Number(x);
+      2 - Number(x);
+    '
+
+  it 'weird precedence rules', ->
+    code1 = esprima.parse '
+      1 / 2 + \'\';
+      \'\' + 1 / 2;
+      1 + 1 + \'\';
+      \'\' + 1 + 1;
+    '
+
+    typeConversions code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      String(1 / 2) + \'\';
+      \'\' + String(1 / 2);
+      String(1 + 1) + \'\';
+      \'\' + String(1) + String(1);
+    '
+
+  it 'knows the +/- unary operators need conversion to "Number"', ->
+    code1 = esprima.parse '
+      +foo;
+      -bar;
+    '
+
+    typeConversions code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      Number(foo);
+      -Number(bar);
+    '
+
+  it 'Works on objects, functions, null and undefined', ->
+    code1 = esprima.parse '
+      null + 2;
+      undefined + 2;
+      (function(){}) + 2;
+      ({}) + 2;
+      null * 2;
+      undefined * 2;
+      (function(){}) * 2;
+      ({}) * 2;
+      null * null;
+      undefined * null;
+      (function(){}) * null;
+      ({}) * null;
+      null * undefined;
+      undefined * undefined;
+      (function(){}) * undefined;
+      ({}) * undefined;
+      null * (function(){});
+      undefined * (function(){});
+      (function(){}) * (function(){});
+      ({}) * (function(){});
+      null * ({});
+      undefined * ({});
+      (function(){}) * ({});
+      ({}) * ({});
+      null + null;
+      undefined + null;
+      (function(){}) + null;
+      ({}) + null;
+      null + undefined;
+      undefined + undefined;
+      (function(){}) + undefined;
+      ({}) + undefined;
+      null + (function(){});
+      undefined + (function(){});
+      (function(){}) + (function(){});
+      ({}) + (function(){});
+      null + ({});
+      undefined + ({});
+      (function(){}) + ({});
+      ({}) + ({});
+    '
+
+    typeConversions code1
+    code1 = escodegen.generate code1
+
+    jseq code1, '
+      JS_ADD(null, 2);
+      JS_ADD(undefined, 2);
+      String(function () { }) + String(2);
+      String({}) + String(2);
+      Number(null) * 2;
+      Number(undefined) * 2;
+      Number(function () { }) * 2;
+      Number({}) * 2;
+      Number(null) * Number(null);
+      Number(undefined) * Number(null);
+      Number(function () { }) * Number(null);
+      Number({}) * Number(null);
+      Number(null) * Number(undefined);
+      Number(undefined) * Number(undefined);
+      Number(function () { }) * Number(undefined);
+      Number({}) * Number(undefined);
+      Number(null) * Number(function () { });
+      Number(undefined) * Number(function () { });
+      Number(function () { }) * Number(function () { });
+      Number({}) * Number(function () { });
+      Number(null) * Number({});
+      Number(undefined) * Number({});
+      Number(function () { }) * Number({});
+      Number({}) * Number({});
+      JS_ADD(null, null);
+      JS_ADD(undefined, null);
+      JS_ADD(function () { }, null);
+      JS_ADD({}, null);
+      JS_ADD(null, undefined);
+      JS_ADD(undefined, undefined);
+      JS_ADD(function () { }, undefined);
+      JS_ADD({}, undefined);
+      JS_ADD(null, function () { });
+      JS_ADD(undefined, function () { });
+      String(function () { }) + String(function () { });
+      String({}) + String(function () { });
+      JS_ADD(null, {});
+      JS_ADD(undefined, {});
+      String(function () { }) + String({});
+      String({}) + String({});
+    '
+
 
 describe 'topmost', () ->
   it 'puts functions at the topmost level', () ->
@@ -817,7 +984,7 @@ describe 'thatter', () ->
     ''') + '\nmain()')
 
     ok.equal(arr[0], 6)
-    ok(/_self \+ 1/.test(arr[1]), 'couldn\'t find this + 1 in ' + arr[1])
+    ok(/String\(_self\) \+ String\(1\)/.test(arr[1]), 'couldn\'t find this + 1 in ' + arr[1])
     ok(/}1$/.test(arr[1]), 'doesnt end in "1" as "+ 1" told it to: ' + arr[1])
     ok.equal(arr[2][0].y, arr[2][1])
     ok.equal(arr[3], 5)

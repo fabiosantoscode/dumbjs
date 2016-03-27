@@ -7,6 +7,7 @@ estraverse = require 'estraverse'
 child_process = require 'child_process'
 
 requireObliteratinator = require './require-obliteratinator'
+typeConversions = require './type-conversions'
 topmost = require './topmost'
 declosurify = require './declosurify'
 bindify = require './bindify'
@@ -25,6 +26,9 @@ clean_ast = (ast) ->
 dumbifyAST = (ast, opt = {}) ->
   if opt.requireObliteratinator isnt false
     ast = requireObliteratinator ast, { filename: opt.filename or '' }
+    clean_ast ast
+  if opt.typeConversions isnt false
+    typeConversions(ast, opt.typeConversions or {})
     clean_ast ast
   if opt.mainify isnt false
     mainify(ast, opt.mainify or {})

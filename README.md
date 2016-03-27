@@ -49,7 +49,7 @@ So you want to transplile javascript to something huh? That sounds like fun!
 You have to implement some functions in your target environment!
 
 
-# BIND(func, closure) -> functionBoundToClosure
+## BIND(func, closure) -> functionBoundToClosure
 
 In plain javascript: `function BIND(func,closure){return func.bind(null, closure)}`
 
@@ -57,6 +57,16 @@ This function takes a function and an object, and returns a function that takes 
 
 For js2cpp, for example, I had to turn every function that `BIND` was called on (these functions take `_closure` as the first argument so they're easy to find), into a callable class, and turn all `BIND` calls into `new ThatCallableClass(theClosure)`.
 
+
+## JS_ADD(a, b) -> Number|String
+
+In plain javascript: `function JS_ADD(a, b) { return a + b }`
+
+When trying to do type conversions, if the type of `a` and/or `b` is not known at compile time, `a + b` turns into `JS_ADD(a, b)`. This is because it is not clear whether to concatenate `a` and `b` as strings ( `String(a) + String(b)`) or to convert them to numbers and add their values ( `Number(a) + Number(b)` ), as this depends on dumbjs being privvy of both types!
+
+They can be stactically removed if there is enough knowledge about the types (maybe dumbjs didn't know of some function's existence), or you can use the `typeof` operator's equivalent to know what kind of variable it is, and perform the addition or concatenation.
+
+This is specified in great detail in the [spec](https://tc39.github.io/ecma262/#sec-addition-operator-plus-runtime-semantics-evaluation). Make sure to read into the toPrimitive part, it becomes super unpredictable if the object has a toString or valueOf method. They are both used, and they don't need to return strings ;)
 
 # Recommended reading
 
