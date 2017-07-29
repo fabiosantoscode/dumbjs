@@ -12,6 +12,7 @@ thatter = require '../lib/thatter'
 bindify = require '../lib/bindify'
 bindifyPrelude = require '../lib/bindify-prelude'
 depropinator = require '../lib/depropinator'
+deregexenise = require '../lib/deregexenise'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
@@ -379,6 +380,30 @@ describe 'ownfunction', () ->
         });
       }
     ')
+
+describe 'deregexenise', () ->
+  it 'replaces regexen with new RegExp()', () ->
+    code1 = esprima.parse '
+      /regex/gi
+    '
+
+    deregexenise code1
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      new RegExp('regex', 'gi')
+    "
+  it 'does that without regex flags as well', () ->
+    code1 = esprima.parse '
+      /regex/
+    '
+
+    deregexenise code1
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      new RegExp('regex')
+    "
 
 describe 'declosurify', () ->
   it 'creates objects for closures, turns every reference into an object access', () ->

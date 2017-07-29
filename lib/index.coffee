@@ -14,6 +14,7 @@ bindify = require './bindify'
 mainify = require './mainify'
 thatter = require './thatter'
 depropinator = require './depropinator'
+deregexenise = require './deregexenise'
 ownfunction = require './ownfunction'
 
 clean_ast = (ast) ->
@@ -24,6 +25,9 @@ clean_ast = (ast) ->
   })
 
 dumbifyAST = (ast, opt = {}) ->
+  if opt.deregexenise isnt false
+    ast = deregexenise ast
+    clean_ast ast
   if opt.requireObliteratinator isnt false
     ast = requireObliteratinator ast, { filename: opt.filename or '' }
     clean_ast ast
@@ -76,8 +80,7 @@ dumbifyAST = (ast, opt = {}) ->
       node.type = 'FunctionExpression'
       return node
     else if node.type is 'Literal'
-      if node.regex
-        assert false, 'using regexps is currently not allowed in dumbscript'
+      return node
     else if node.type in ['Program', 'BlockStatement']
       declarations_to_declarators = (decls, kind) ->
         return decls.map (decl) -> {
