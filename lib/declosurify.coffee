@@ -208,7 +208,7 @@ _declosurify = (programNode, opt = {}) ->
           (this_function_needs_to_take_closure() || (this_function_needs_to_pass_closure() && scope_below_using(escope_scope(), node.name)))
         return ident_to_member_expr(node)
 
-      if node.type is 'BlockStatement' &&
+      if /(Switch|Block)Statement/.test(node.type) &&
           this_function_needs_to_pass_closure()
         node.closure = null
         bod = []
@@ -227,17 +227,19 @@ _declosurify = (programNode, opt = {}) ->
                   member_expr(current_scope().name, funct),
                   funct)
 
-        assign_to_closure_or_declare = (id, init = 'undefined') ->
+        assign_or_declare = (id, init = 'undefined') ->
           if id.type is 'MemberExpression'
             return assignment(id, init)
           else
             assert.equal id.type, 'Identifier'
             return declaration(id.name, init)
 
-        for _node in node.body
-          if _node.type is 'VariableDeclaration' and parent.type != 'ForInStatement'
+        extract_var_decls = (_node) ->
+          if _node.type is 'VariableDeclaration'
+            declosurified = []
             for decl in _node.declarations
-              bod.push assign_to_closure_or_declare(decl.id, decl.init)
+              declosurified.push assign_or_declare(decl.id, decl.init)
+            return declosurified
           else if _node.type is 'ForInStatement'
             forInVariableName = for_in_name()
             for decl in _node.left.declarations
@@ -246,15 +248,27 @@ _declosurify = (programNode, opt = {}) ->
                 forInVariableName
               )
               decl.id = identIfString(forInVariableName)
-            bod.push(_node)
+            return _node
           else if _node.type is 'ForStatement' && _node.init?.type is 'VariableDeclaration'
-            for decl in _node.init.declarations
-              bod.push assign_to_closure_or_declare(decl.id, decl.init)
+            decls = _node.init.declarations.map (decl) ->
+              assignment(decl.id, decl.init || identIfString("undefined"))
             _node.init = null
-            bod.push(_node)
-          else
-            bod.push(_node)
-        return { type: 'BlockStatement', body: bod }
+            return decls.concat(_node)
+          return _node
+
+        if node.type is 'BlockStatement'
+          bod = bod.concat node.body.map(extract_var_decls).reduce(
+            (accum, item) -> accum.concat(item),
+            []
+          )
+          return { type: 'BlockStatement', body: bod }
+        else if node.type is 'SwitchStatement'
+          for _case in node.cases
+            for _node in _case.consequent
+              _case.consequent = extract_var_decls(_node)
+          return node
+        else
+          assert false
 
       return node
 
@@ -300,7 +314,7 @@ object_decl = (name) ->
 identIfString = (ast) ->
   if typeof ast is 'string'
     return { type: 'Identifier', name: ast }
-  if ast.type is 'Identifier'
+  if ast?.type is 'Identifier'
     return { type: 'Identifier', name: ast.name }
   return ast
 

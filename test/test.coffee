@@ -16,14 +16,43 @@ deregexenise = require '../lib/deregexenise'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
 
+clean_ast = (ast) ->
+  estraverse.traverse(ast, {
+    leave: (node) ->
+      delete node.scope
+      delete node.objType
+  })
+  return ast
+
+generate_if_needed = (s) ->
+  if typeof s is 'string'
+    s
+  else
+    escodegen.generate(s)
+
+parse_if_needed = (s) ->
+  if typeof s is 'string'
+    esprima.parse(s)
+  else
+    s
 
 no_ws = (s) ->
   s.replace(/(\s|\n)+/gm, ' ').replace(/\s*;\s*$/,'').trim()
 jseq = (a, b, msg) ->
-  ok.equal(no_ws(a), no_ws(b), msg)
+  try
+    s_a = no_ws(generate_if_needed(a))
+    s_b = no_ws(generate_if_needed(b))
+  catch e
+    ok.deepEqual(clean_ast(parse_if_needed(a)), clean_ast(parse_if_needed(b)), msg)
+    ok false
+    return
+  ok.equal(s_a, s_b, msg)
 
 compileAndCheck = (before, after, opt = {}) ->
-  js = dumbjs(before, opt)
+  callAndCheck(before, dumbjs, after, opt)
+
+callAndCheck = (before, fn, after, opt = {}) ->
+  js = fn(before, opt)
   js = no_ws(js)
     .replace /.+function \(require, module, exports\) \{/, ''
     .replace /\}, \{\} ] \}, \{\}, \[.+/, ''
@@ -54,7 +83,52 @@ describe 'core', ->
       '(function () { }());',
       { topmost: false, declosurify: false, mainify: false, }
 
-  it 'polyfills regexps with xregexp'
+  it 'can pass for..in statements through', () ->
+    compileAndCheck '
+      for (var x in y) {}
+    ', '
+      for (var x in  y) { }
+    ', { mainify: false }
+
+    compileAndCheck '
+      function a() {
+        for (var x in y) {
+          function _x() {
+            console.log(x)
+          }
+          _x()
+        }
+      }
+    ', '
+      var _flatten__x = function (_closure) { console.log(_closure.x); };
+      var a = function () {
+        var _closure_0 = {};
+        for (var _for_in_0 in y) {
+          _closure_0.x = _for_in_0;
+          _flatten__x(_closure_0);
+        }
+      }
+    ', { mainify: false }
+
+  it.skip 'refrains from messing with variable declarations in fors as well', () ->
+    compileAndCheck '
+      function a() {
+        for (var x = 123;;) {
+          function _x() {
+            console.log(x)
+          }
+          _x()
+        }
+      }
+    ', '
+      var _flatten__x = function (_closure) { console.log(_closure.x); };
+      var a = function () {
+        var _closure_0 = {};
+        for (_closure_0.x = 123;;) {
+          _flatten__x(_closure_0);
+        }
+      }
+    ', { mainify: false }
 
 describe 'typeConversions', () ->
   it 'turns numbers into strings when adding them to strings', ->
@@ -1148,6 +1222,38 @@ describe 'functional tests', () ->
     ''') + ';main()')
 
     ok.deepEqual(arr, [1,2])
+
+  it 'regression: closure membex found in for() init section', () ->
+    code = dumbjs('''
+function a() {
+  var b = function() {
+    switch (0) {
+      default:
+        for (var i = 1;;) {
+        }
+    }
+
+    (function(){ return i })();
+  };
+};
+    ''')
+
+    eval(bindifyPrelude + code + ';main()')
+
+  it.skip 'requiring node core modules works', () ->
+    arr = []
+
+    code = dumbjs('''
+      var util = require('util')
+      arr = [ 'deepEqual' in util ]
+    ''')
+
+    fs.writeFileSync('/tmp/tmpmod.js', bindifyPrelude + code + ';main()')
+    require('/tmp/tmpmod.js')
+
+    #eval(bindifyPrelude + code + ';main()')
+
+    ok.deepEqual(arr, [true])
 
   it 'regression: closures don\'t work if passed recursively through a function that doesn\'t use them', () ->
     arr = []
