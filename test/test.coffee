@@ -37,7 +37,7 @@ parse_if_needed = (s) ->
     s
 
 no_ws = (s) ->
-  s.replace(/(\s|\n)+/gm, ' ').replace(/\s*;\s*$/,'').trim()
+  s.replace(/(\s|\n)+/gm, ' ').replace(/\s*;\s*$/,'').trim().replace(/;;/g, ';')
 jseq = (a, b, msg) ->
   try
     s_a = no_ws(generate_if_needed(a))
@@ -438,14 +438,18 @@ describe 'ownfunction', () ->
 
     jseq(code1, '
       function x() {
-        var _ownfunction_0 = y;
-        function y() {
-          return _ownfunction_0();
-        }
-        var _ownfunction_1 = function zed() {
-          return _ownfunction_1();
-        };
-        foo(_ownfunction_1);
+        var y = (function () {
+          var y = function () {
+            return y();
+          };
+          return y;
+        }());
+        foo(function () {
+          var zed = function () {
+            return zed();
+          };
+          return zed;
+        }());
         function immune1() {
           
         }
@@ -1177,6 +1181,31 @@ describe 'functional tests', () ->
     code = dumbjs 'XFOO=require("./some.js");', { filename: __filename }  # actual file in this directory
     eval(bindifyPrelude + code + '\nmain()')
     ok.equal XFOO(), 'xfoo'
+
+  it 'regression: ownfunction works without mainify as well', () ->
+    execd = []
+
+    eval(
+      bindifyPrelude + dumbjs('
+        var x = function x(i) {
+          execd.push(i);
+          if (i) x(--i)
+        };
+        x(3)
+      ', { mainify: false })
+    )
+
+    eval(
+      bindifyPrelude + dumbjs('
+        function y(i) {
+          execd.push(i);
+          if (i) y(--i)
+        };
+        y(3)
+      ', { mainify: false })
+    )
+
+    ok.deepEqual(execd, [3,2,1,0,3,2,1,0])
 
   it 'passing functions works', () ->
     arr = []
