@@ -9,6 +9,9 @@ resolveSync = require('resolve').sync
 
 util = require('./util')
 
+coreModules = fs.readdirSync(__dirname + '/../node/lib')
+  .map((mod) => mod.replace(/\.js$/, ''))
+
 module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, filename = '', isMain = true, sluginator = null, _doWrap = true, resolve = resolveSync, slug, _recurse } = {}) ->
   if not sluginator
     sluginator = util.nameSluginator()
@@ -24,6 +27,7 @@ module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, file
     if not _slug
       _slug = sluginator(path.basename(resolvedFilename).replace(/\.js$/, ''))
       _ast = esprima.parse(readFileSync(resolvedFilename) + '')
+      foundModules[resolvedFilename] = _slug
       thisModule = _recurse(_ast, {
         readFileSync,
         foundModules,
@@ -60,7 +64,12 @@ findModules = (ast, resolve, dirname, getModuleSlug) ->
           node.callee.name is 'require' and
           node.arguments.length is 1 and
           node.arguments[0].type is 'Literal'
-        newName = getModuleSlug(resolve(node.arguments[0].value, { basedir: dirname }))
+        moduleName = node.arguments[0].value
+        if coreModules.indexOf(moduleName) != -1
+          resolved = __dirname + "/../node/lib/#{moduleName}.js"
+        else
+          resolved = resolve(moduleName, { basedir: dirname })
+        newName = getModuleSlug(resolved, node.arguments[0].value)
         if newName
           return {
             type: 'CallExpression',
