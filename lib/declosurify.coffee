@@ -29,6 +29,10 @@ _declosurify = (programNode, opt = {}) ->
   closure_name = () ->
     return "_closure_#{_counter++}"
 
+  _counter_for_in = 0
+  for_in_name = () ->
+    return "_for_in_#{_counter_for_in++}"
+
   scope_of_function = (node) ->
     scope = scopeMan.acquire(node)
     if scope.type is 'function-expression-name'
@@ -231,9 +235,18 @@ _declosurify = (programNode, opt = {}) ->
             return declaration(id.name, init)
 
         for _node in node.body
-          if _node.type is 'VariableDeclaration'
+          if _node.type is 'VariableDeclaration' and parent.type != 'ForInStatement'
             for decl in _node.declarations
               bod.push assign_to_closure_or_declare(decl.id, decl.init)
+          else if _node.type is 'ForInStatement'
+            forInVariableName = for_in_name()
+            for decl in _node.left.declarations
+              _node.body.body.unshift assignment(
+                decl.id,
+                forInVariableName
+              )
+              decl.id = identIfString(forInVariableName)
+            bod.push(_node)
           else if _node.type is 'ForStatement' && _node.init?.type is 'VariableDeclaration'
             for decl in _node.init.declarations
               bod.push assign_to_closure_or_declare(decl.id, decl.init)
