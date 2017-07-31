@@ -115,7 +115,8 @@ _declosurify = (programNode, opt = {}) ->
         return funcs_below
           .map((node) -> scope_of_function node)
           .some((scope) ->
-            scope.through.some((through) -> through.resolved in throughs)
+            scope.through.some((through) ->
+              through.resolved isnt null and through.resolved in throughs)
           )
     return false
 
@@ -251,7 +252,7 @@ _declosurify = (programNode, opt = {}) ->
             return _node
           else if _node.type is 'ForStatement' && _node.init?.type is 'VariableDeclaration'
             decls = _node.init.declarations.map (decl) ->
-              assignment(decl.id, decl.init || identIfString("undefined"))
+              assign_or_declare(decl.id, decl.init || identIfString("undefined"))
             _node.init = null
             return decls.concat(_node)
           return _node

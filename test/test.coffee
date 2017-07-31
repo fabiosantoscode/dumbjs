@@ -830,6 +830,28 @@ describe 'declosurify', () ->
       }
     ')
 
+  it 'regression: accessing global variables made a useless closure', () ->
+    code1 = esprima.parse "
+      function main() {
+        var a = function two (x) { console.log('function two got', x) };
+        for (var i = 0; i < functions.length; i++) {
+          functions[i](i + 1)
+        }
+      }
+    "
+
+    declosurify code1
+    code1 = escodegen.generate code1
+
+    jseq code1, "
+      function main() {
+        var a = function two(x) { console.log('function two got', x); };
+        for (var i = 0; i < functions.length; i++) {
+          functions[i](i + 1);
+        }
+      }
+    "
+
 describe 'bindify', () ->
   it 'binds _flatten_* function to their current _closure_*', () ->
     code1 = esprima.parse '
