@@ -47,9 +47,6 @@ module.exports = (programNode) ->
       return generate_ownfunction_iife(node, newName)
   })
 
-conditionally_wrap_in_expr_statement = (ast, do_wrap) ->
-  return ast
-
 generate_ownfunction_iife = (ast, name) ->
   util.iife([
     util.declaration(name, ast),
