@@ -408,15 +408,15 @@ describe 'ownfunction', () ->
     jseq(code1, '
       function x() {
         var y = function () {
-          var y = function () {
+          function y() {
             return y();
-          };
+          }
           return y;
         }();
         foo(function () {
-          var zed = function () {
+          function zed() {
             return zed();
-          };
+          }
           return zed;
         }());
         function immune1() {
@@ -427,6 +427,28 @@ describe 'ownfunction', () ->
         });
       }
     ')
+
+  it 'passes function name through another function', () ->
+    code1 = esprima.parse '
+      function x() {
+        function y() {
+          x()
+        }
+      }
+    '
+
+    ownfunction code1
+
+    jseq code1, '
+      var x = function () {
+        function x() {
+          function y() {
+            x();
+          }
+        }
+        return x;
+      }();
+    '
 
 describe 'deregexenise', () ->
   it 'replaces regexen with new RegExp()', () ->
