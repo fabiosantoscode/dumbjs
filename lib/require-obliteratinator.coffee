@@ -84,12 +84,12 @@ generateRequirerFunction = ({ slug, dirname, filename, body }) -> [
   util.declaration('_was_module_initialised' + slug, util.literal(false)),
   util.declaration('_module' + slug)
   util.functionDeclaration({
+    id: '_initmodule' + slug,
+    body: wrapModuleContents({ body, filename, dirname })
+  }),
+  util.functionDeclaration({
     id: '_require' + slug,
     body: [
-      util.functionDeclaration({
-        id: '_initmodule' + slug,
-        body: wrapModuleContents({ body, filename, dirname })
-      }),
       util.if(
         util.identifier('_was_module_initialised' + slug),
         util.return('_module' + slug)

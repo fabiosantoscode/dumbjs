@@ -952,15 +952,15 @@ describe 'requireObliteratinator', () ->
     jseq code1, "
       var _was_module_initialised_themodule = false;
       var _module_themodule;
+      function _initmodule_themodule() {
+        var module = {};
+        var __filename = '/path/to/the-module.js';
+        var __dirname = '/path/to';
+        foobarbaz();
+        module.exports = 3;
+        return module.exports;
+      }
       function _require_themodule() {
-        function _initmodule_themodule() {
-          var module = {};
-          var __filename = '/path/to/the-module.js';
-          var __dirname = '/path/to';
-          foobarbaz();
-          module.exports = 3;
-          return module.exports;
-        }
         if (_was_module_initialised_themodule) {
           return _module_themodule;
         }
