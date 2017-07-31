@@ -6,7 +6,7 @@ escodegen = require 'escodegen'
 estraverse = require 'estraverse'
 child_process = require 'child_process'
 
-astValidator = require 'ast-validator'
+astValidator = require '../vendor/js-ast-validator/check-ast'
 
 requireObliteratinator = require './require-obliteratinator'
 typeConversions = require './type-conversions'
