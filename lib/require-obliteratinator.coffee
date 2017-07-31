@@ -12,7 +12,7 @@ util = require('./util')
 coreModules = fs.readdirSync(__dirname + '/../node/lib')
   .map((mod) => mod.replace(/\.js$/, ''))
 
-module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, filename = '', isMain = true, sluginator = null, _doWrap = true, resolve = resolveSync, slug, _recurse } = {}) ->
+module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, filename = '', isMain = true, sluginator = null, _doWrap = true, resolve = resolveSync, slug, _recurse = module.exports } = {}) ->
   if not sluginator
     sluginator = util.nameSluginator()
 
@@ -22,8 +22,6 @@ module.exports = (ast, { readFileSync = fs.readFileSync, foundModules = {}, file
   otherModules = []
   findModules ast, resolve, dirname, (resolvedFilename) ->
     _slug = foundModules[resolvedFilename]
-    if not _recurse
-      _recurse = module.exports
     if not _slug
       _slug = sluginator(path.basename(resolvedFilename).replace(/\.js$/, ''))
       _ast = esprima.parse(readFileSync(resolvedFilename) + '')
