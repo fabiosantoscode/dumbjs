@@ -6,6 +6,8 @@ escodegen = require 'escodegen'
 estraverse = require 'estraverse'
 child_process = require 'child_process'
 
+astValidator = require 'ast-validator'
+
 requireObliteratinator = require './require-obliteratinator'
 typeConversions = require './type-conversions'
 topmost = require './topmost'
@@ -16,6 +18,7 @@ thatter = require './thatter'
 depropinator = require './depropinator'
 deregexenise = require './deregexenise'
 ownfunction = require './ownfunction'
+util = require './util'
 
 clean_ast = (ast) ->
   estraverse.traverse(ast, {
@@ -54,7 +57,7 @@ dumbifyAST = (ast, opt = {}) ->
   if opt.bindify isnt false
     bindify ast  # mutate ast
     clean_ast ast
-  return estraverse.replace ast, enter: (node) ->
+  ret = estraverse.replace ast, enter: (node) ->
     if node.type is 'ExpressionStatement'
       if node.expression.type is 'Literal'
         return estraverse.VisitorOption.Remove
@@ -107,6 +110,10 @@ dumbifyAST = (ast, opt = {}) ->
       return node
     else
       throw new Error('Unknown node type ' + node.type + ' in ' + node)
+  isValid = astValidator ret
+  if isValid != true
+    throw isValid
+  return ret
 
 esprimaOpts = {
   sourceType: 'module',
@@ -128,3 +135,4 @@ dumbify = (js, opt = {}) ->
 module.exports = dumbify
 module.exports.dumbify = dumbify
 module.exports.dumbifyAST = dumbifyAST
+module.exports.enableTestMode = util.enableTestMode

@@ -1,8 +1,8 @@
 assert = require('assert')
 escope = require('escope')
 estraverse = require('estraverse')
-nameSluginator = require('./util').nameSluginator
-
+util = require('./util')
+nameSluginator = util.nameSluginator
 
 # Shoves functions up, making sure there are no nested functions in the codez
 
@@ -63,7 +63,7 @@ module.exports = (programNode) ->
           return this.remove()
       for { insert, variable } in insertVars
         if node == insert
-          return { type:'Identifier', name: variable }
+          return util.identifier(variable)
       return node
   })
 
@@ -72,19 +72,6 @@ module.exports = (programNode) ->
   )
   insertFuncs.forEach((toInsert) -> programNode.body.splice(toInsert.into, 0, toInsert.insert))
   insertVars.forEach((toInsert) ->
-    programNode.body.splice(toInsert.into, 0, makeDeclaration(toInsert.variable, toInsert.insert))
+    programNode.body.splice(toInsert.into, 0, util.declaration(toInsert.variable, toInsert.insert))
   )
 
-makeDeclaration = (name, value) ->
-  return {
-    type: "VariableDeclaration",
-    kind: "var",
-    declarations: [{
-      type: "VariableDeclarator",
-      id: {
-        type: "Identifier",
-        name: name,
-      },
-      init: value,
-    }],
-  }

@@ -71,120 +71,39 @@ findModules = (ast, resolve, dirname, getModuleSlug) ->
           resolved = resolve(moduleName, { basedir: dirname })
         newName = getModuleSlug(resolved, node.arguments[0].value)
         if newName
-          return {
-            type: 'CallExpression',
-            callee: { type: 'Identifier', name: newName },
-            arguments: []
-          }
+          return util.call(newName)
   })
 
-wrapModuleContents = ({ body, filename = '', dirname = '' }) ->
-  return [
-    {
-      "type": "VariableDeclaration",
-      "kind": "var",
-      "declarations": [{
-        "type": "VariableDeclarator",
-        "id": { "type": "Identifier", "name": "module" },
-        "init": {
-          "type": "ObjectExpression",
-          "properties": []
-        }
-      }],
-    }, {
-      "type": "VariableDeclaration",
-      "kind": "var",
-      "declarations": [{
-        "type": "VariableDeclarator",
-        "id": { "type": "Identifier", "name": "__filename" },
-        "init": { "type": "Literal", "value": filename, }
-      }],
-    }, {
-      "type": "VariableDeclaration",
-      "kind": "var",
-      "declarations": [{
-        "type": "VariableDeclarator",
-        "id": { "type": "Identifier", "name": "__dirname" },
-        "init": { "type": "Literal", "value": dirname, }
-      }],
-    },
-  ].concat(body).concat([
-    {
-      "type": "ReturnStatement",
-      "argument": {
-        "type": "MemberExpression",
-        "computed": false,
-        "object": { "type": "Identifier", "name": "module" },
-        "property": { "type": "Identifier", "name": "exports" }
-      }
-    }
-  ])
+wrapModuleContents = ({ body, filename = '', dirname = '' }) -> [
+  util.declaration('module', util.object()),
+  util.declaration('__filename', util.literal(filename)),
+  util.declaration('__dirname', util.literal(dirname)),
+  body...,
+  util.return(util.member('module', 'exports'))
+]
 
 generateRequirerFunction = ({ slug, dirname, filename, body }) -> [
-  {
-    "type": "VariableDeclaration",
-    "kind": "var"
-    "declarations": [{
-      "type": "VariableDeclarator",
-      "id": { "type": "Identifier", "name": "_was_module_initialised#{slug}" },
-      "init": { "type": "Literal", "value": false }
-    }],
-  }, {
-    "type": "VariableDeclaration",
-    "kind": "var"
-    "declarations": [{
-      "type": "VariableDeclarator",
-      "id": { "type": "Identifier", "name": "_module#{slug}" },
-      "init": null
-    }],
-  }, {
-    "type": "FunctionDeclaration",
-    "id": { "type": "Identifier", "name": "_require#{slug}" },
-    "params": [],
-    "defaults": [],
-    "body": {
-      "type": "BlockStatement",
-      "body": [{
-        "type": "FunctionDeclaration",
-        "id": { "type": "Identifier", "name": "_initmodule#{slug}" },
-        "params": [],
-        "defaults": [],
-        "body": {
-          "type": "BlockStatement",
-          "body": wrapModuleContents({ body, filename, dirname }),
-        },
-        "generator": false,
-        "expression": false
-      }, {
-        "type": "IfStatement",
-        "test": { "type": "Identifier", "name": "_was_module_initialised#{slug}" },
-        "consequent": {
-          "type": "BlockStatement",
-          "body": [{
-            "type": "ReturnStatement",
-            "argument": { "type": "Identifier", "name": "_module#{slug}" }
-          }]
-        },
-        "alternate": null
-      }, {
-        "type": "ExpressionStatement",
-        "expression": {
-          "type": "AssignmentExpression",
-          "operator": "=",
-          "left": { "type": "Identifier", "name": "_module#{slug}" },
-          "right": {
-            "type": "CallExpression",
-            "callee": { "type": "Identifier", "name": "_initmodule#{slug}" },
-            "arguments": []
-          },
-        }
-      }, {
-        "type": "ReturnStatement",
-        "argument": { "type": "Identifier", "name": "_module#{slug}" }
-      }]
-    },
-    "generator": false,
-    "expression": false
-  }
+  util.declaration('_was_module_initialised' + slug, util.literal(false)),
+  util.declaration('_module' + slug)
+  util.functionDeclaration({
+    id: '_require' + slug,
+    body: [
+      util.functionDeclaration({
+        id: '_initmodule' + slug,
+        body: wrapModuleContents({ body, filename, dirname })
+      }),
+      util.if(
+        util.identifier('_was_module_initialised' + slug),
+        util.return('_module' + slug)
+      ),
+      util.expressionStatement(
+        util.assignment(
+          '_module' + slug,
+          util.call('_initmodule' + slug)
+        )
+      ),
+      util.return('_module' + slug)
+    ]
+  })
 ]
 

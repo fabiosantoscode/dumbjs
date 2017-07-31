@@ -41,20 +41,18 @@ module.exports = (programNode) ->
         wasDeclaration = true
         return util.declaration(
           newName,
-          generate_ownfunction_iife(node, newName, wasDeclaration)
+          generate_ownfunction_iife(node, newName)
         )
 
-      return generate_ownfunction_iife(node, newName, wasDeclaration)
+      return generate_ownfunction_iife(node, newName)
   })
 
 conditionally_wrap_in_expr_statement = (ast, do_wrap) ->
-  if do_wrap
-    return { type: 'ExpressionStatement', expression: ast }
   return ast
 
-generate_ownfunction_iife = (ast, name, wasDeclaration) ->
-  conditionally_wrap_in_expr_statement(util.iife([
+generate_ownfunction_iife = (ast, name) ->
+  util.iife([
     util.declaration(name, ast),
     util.return(util.identifier(name))
-  ]), wasDeclaration)
+  ])
 

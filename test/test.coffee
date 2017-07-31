@@ -1,7 +1,11 @@
 fs = require 'fs'
 es = require 'event-stream'
 ok = require 'assert'
+
 estraverse = require 'estraverse'
+esprima = require 'esprima'
+escodegen = require 'escodegen'
+
 dumbjs = require '../lib'
 requireObliteratinator = require '../lib/require-obliteratinator'
 typeConversions = require '../lib/type-conversions'
@@ -13,8 +17,9 @@ bindify = require '../lib/bindify'
 bindifyPrelude = require '../lib/bindify-prelude'
 depropinator = require '../lib/depropinator'
 deregexenise = require '../lib/deregexenise'
-esprima = require 'esprima'
-escodegen = require 'escodegen'
+util = require '../lib/util'
+
+util.enableTestMode()
 
 clean_ast = (ast) ->
   estraverse.traverse(ast, {
@@ -37,7 +42,7 @@ parse_if_needed = (s) ->
     s
 
 no_ws = (s) ->
-  s.replace(/(\s|\n)+/gm, ' ').replace(/\s*;\s*$/,'').trim().replace(/;;/g, ';')
+  s.replace(/(\s|\n)+/gm, ' ').replace(/\s*;\s*$/,'').trim()
 jseq = (a, b, msg) ->
   try
     s_a = no_ws(generate_if_needed(a))
@@ -140,7 +145,6 @@ describe 'typeConversions', () ->
     '
 
     typeConversions code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       var x = 1;
@@ -161,7 +165,6 @@ describe 'typeConversions', () ->
     '
 
     typeConversions code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       var x = \'2\';
@@ -182,7 +185,6 @@ describe 'typeConversions', () ->
     '
 
     typeConversions code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       String(1 / 2) + \'\';
@@ -198,7 +200,6 @@ describe 'typeConversions', () ->
     '
 
     typeConversions code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       Number(foo);
@@ -250,7 +251,6 @@ describe 'typeConversions', () ->
     '
 
     typeConversions code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       JS_ADD(null, 2);
@@ -308,7 +308,6 @@ describe 'topmost', () ->
     '
 
     topmost code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function _flatten_y() {
@@ -326,7 +325,6 @@ describe 'topmost', () ->
     '
 
     topmost code2
-    code2 = escodegen.generate code2
 
     jseq code2, '
       var _flatten_0 = function () {
@@ -355,7 +353,6 @@ describe 'topmost', () ->
     '
 
     topmost code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       var _flatten_objectMaker = function objectMaker(_closure) {
@@ -382,7 +379,6 @@ describe 'topmost', () ->
     '
 
     topmost code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function _flatten_y() {
@@ -403,7 +399,6 @@ describe 'topmost', () ->
       }
     '
     topmost code1
-    code1 = escodegen.generate code1
     jseq(code1, '
       function _flatten_lel2() {
         return x;
@@ -434,16 +429,15 @@ describe 'ownfunction', () ->
     '
 
     ownfunction code1
-    code1 = escodegen.generate code1
 
     jseq(code1, '
       function x() {
-        var y = (function () {
+        var y = function () {
           var y = function () {
             return y();
           };
           return y;
-        }());
+        }();
         foo(function () {
           var zed = function () {
             return zed();
@@ -466,7 +460,6 @@ describe 'deregexenise', () ->
     '
 
     deregexenise code1
-    code1 = escodegen.generate code1
 
     jseq code1, "
       new RegExp('regex', 'gi')
@@ -477,7 +470,6 @@ describe 'deregexenise', () ->
     '
 
     deregexenise code1
-    code1 = escodegen.generate code1
 
     jseq code1, "
       new RegExp('regex')
@@ -498,7 +490,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1, { params: false, fname: false, recursiveClosures: false }
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function x() {
@@ -525,7 +516,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1, { params: false, fname: false }
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function x() {
@@ -557,8 +547,6 @@ describe 'declosurify', () ->
 
     declosurify code1, { params: false, fname: false }
 
-    code1 = escodegen.generate code1
-
     jseq code1, '
       function immune1() { }
       function immune15() { function xx(y) { var x; return x; } }
@@ -587,7 +575,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function thing(x) {
@@ -609,7 +596,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1, { fname: false, params: false, always_create_closures: true }
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function x() {
@@ -633,7 +619,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1, { fname: false, params: false }
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function passesZee() {
@@ -658,7 +643,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function x(foo) {
@@ -690,7 +674,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function x() {
@@ -721,7 +704,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1, { fname: false, params: false, always_create_closures: true }
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function x() {
@@ -754,7 +736,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1, { recursiveClosures: false }
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function x(a) {
@@ -777,7 +758,6 @@ describe 'declosurify', () ->
       }
     '
     declosurify code1, { fname: false, params: false, always_create_closures: true }
-    code1 = escodegen.generate code1
     jseq(code1, '
       function x() {
         var _closure_0 = {};
@@ -808,7 +788,6 @@ describe 'declosurify', () ->
       }
     '
     declosurify code1
-    code1 = escodegen.generate code1
     jseq(code1, '
       function main() {
         var _closure_0 = {};
@@ -841,7 +820,6 @@ describe 'declosurify', () ->
     "
 
     declosurify code1
-    code1 = escodegen.generate code1
 
     jseq code1, "
       function main() {
@@ -863,7 +841,6 @@ describe 'bindify', () ->
     '
 
     bindify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function _flatten_0(_closure) {
@@ -889,7 +866,6 @@ describe 'bindify', () ->
     '
 
     bindify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function _flatten_0(_closure) { return _closure_0.x; }
@@ -913,7 +889,6 @@ describe 'bindify', () ->
     '
 
     bindify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       var _flatten_0 = function (_closure) { };
@@ -934,7 +909,6 @@ describe 'bindify', () ->
     '
 
     bindify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       var _closure_0 = {};
@@ -960,7 +934,6 @@ describe 'bindify', () ->
     '
 
     bindify code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       function _flatten_x(_closure, a) {
@@ -982,7 +955,6 @@ describe 'depropinator', () ->
     '
 
     depropinator code1
-    code1 = escodegen.generate code1
 
     jseq code1, '
       var x = function () {
@@ -1001,7 +973,6 @@ describe 'requireObliteratinator', () ->
     '
 
     requireObliteratinator(code1, { filename: '/path/to/the-module.js', isMain: false })
-    code1 = escodegen.generate code1
 
     jseq code1, "
       var _was_module_initialised_themodule = false;
@@ -1041,7 +1012,6 @@ describe 'requireObliteratinator', () ->
         ok name in ['foo', './foo', '/path/to/foo']
         return '/path/to/foo'
     })
-    code1 = escodegen.generate code1
 
     jseq code1, "
       _require_foo();
@@ -1119,7 +1089,6 @@ describe 'thatter', () ->
     code1 = esprima.parse 'var x = function () { return this; }'
 
     thatter code1
-    code1 = escodegen.generate code1
 
     jseq code1, "
       var x = function (_self) { return _self; }
@@ -1134,7 +1103,6 @@ describe 'thatter', () ->
     "
 
     thatter code1
-    code1 = escodegen.generate code1
 
     jseq code1, "
       var x = function (_self) { return x(_self, 3, 4); };
@@ -1155,7 +1123,6 @@ describe 'thatter', () ->
     "
 
     thatter code1
-    code1 = escodegen.generate code1
 
     jseq code1, "
       function main() {
@@ -1177,7 +1144,6 @@ describe 'thatter', () ->
     "
 
     thatter code1
-    code1 = escodegen.generate code1
 
     jseq code1, "
       function x(_self) { return someObject.x(someObject, _self); } ;
@@ -1295,9 +1261,9 @@ function a() {
     arr = []
 
     code = dumbjs('''
-      var util = require('util')
-      arr = [ 'deepEqual' in util ]
-    ''')
+      var events = require('events')
+      arr = [ 'deepEqual' in events ]
+    ''', { deregexenise: false, topmost: false, declosurify: false })
 
     fs.writeFileSync('/tmp/tmpmod.js', bindifyPrelude + code + ';main()')
     require('/tmp/tmpmod.js')

@@ -2,6 +2,7 @@ assert = require 'assert'
 escope = require 'escope'
 estraverse = require 'estraverse'
 tern = require 'tern/lib/infer'
+util = require './util'
 
 # Every function that has an execution environment will save their shit in a _closure
 # variable.
@@ -140,14 +141,14 @@ _declosurify = (programNode, opt = {}) ->
         (current_scope() isnt identScope)
       if lookInClosuresArgument && upper_scope() is identScope
         # The closure is the outer closure, which was passed as the "_closure" argument
-        return member_expr('_closure', node.name)
+        return util.member('_closure', node.name)
       else if lookInClosuresArgument && upper_scope() isnt identScope
         # The closure is out of the upper closure
-        return member_expr(
-          member_expr('_closure', identScope.name),
+        return util.member(
+          util.member('_closure', identScope.name),
           node.name)
       else if identScope.name
-        return member_expr(identScope.name, node.name)
+        return util.member(identScope.name, node.name)
 
   estraverse.replace programNode,
     enter: (node, parent) ->
@@ -167,7 +168,7 @@ _declosurify = (programNode, opt = {}) ->
         if this_function_needs_to_take_closure()
           if parent isnt programNode &&
               opt.recursiveClosures isnt false
-            node.params.unshift({ type: 'Identifier', name: '_closure' })
+            node.params.unshift(util.identifier('_closure'))
 
       return node
     leave: (node, parent) ->
@@ -219,13 +220,13 @@ _declosurify = (programNode, opt = {}) ->
               if scope_below_using(escope_scope(), param.name)
                 if param.name isnt '_closure'
                   bod.push assignment(
-                    member_expr(scope_with(param.name).name, param.name),
+                    util.member(scope_with(param.name).name, param.name),
                     param)
           if opt.fname != false
             for funct in functions_declared(node)
               if scope_below_using(escope_scope(), funct)
                 bod.push assignment(
-                  member_expr(current_scope().name, funct),
+                  util.member(current_scope().name, funct),
                   funct)
 
         assign_or_declare = (id, init = 'undefined') ->
@@ -233,7 +234,7 @@ _declosurify = (programNode, opt = {}) ->
             return assignment(id, init)
           else
             assert.equal id.type, 'Identifier'
-            return declaration(id.name, init)
+            return util.declaration(id.name, init)
 
         extract_var_decls = (_node) ->
           if _node.type is 'VariableDeclaration'
@@ -248,11 +249,11 @@ _declosurify = (programNode, opt = {}) ->
                 decl.id,
                 forInVariableName
               )
-              decl.id = identIfString(forInVariableName)
+              decl.id = util.identifierIfString(forInVariableName)
             return _node
           else if _node.type is 'ForStatement' && _node.init?.type is 'VariableDeclaration'
             decls = _node.init.declarations.map (decl) ->
-              assign_or_declare(decl.id, decl.init || identIfString("undefined"))
+              assign_or_declare(decl.id, decl.init || util.identifierIfString("undefined"))
             _node.init = null
             return decls.concat(_node)
           return _node
@@ -262,7 +263,7 @@ _declosurify = (programNode, opt = {}) ->
             (accum, item) -> accum.concat(item),
             []
           )
-          return { type: 'BlockStatement', body: bod }
+          return util.block bod
         else if node.type is 'SwitchStatement'
           for _case in node.cases
             for _node in _case.consequent
@@ -284,60 +285,19 @@ _declosurify = (programNode, opt = {}) ->
         if closure.name
           func.body.body.unshift(
             assignment(
-              member_expr(closureName, closure.name),
-              member_expr('_closure', closure.name)))
+              util.member(closureName, closure.name),
+              util.member('_closure', closure.name)))
       if upperClosure.name
         func.body.body.unshift(
           assignment(
-            member_expr(closureName, upperClosure.name),
+            util.member(closureName, upperClosure.name),
             '_closure'))
 
-    func.body.body.unshift object_decl(closureName)
+    func.body.body.unshift(
+      util.declaration(closureName, util.object())
+    )
 
-declaration = (name, init) ->
-  return {
-    type: "VariableDeclaration",
-    kind: "var"
-    declarations: [
-      type: "VariableDeclarator",
-      id: identIfString(name),
-      init: init
-    ],
-  }
-
-object_decl = (name) ->
-  return declaration(name, {
-    type: "ObjectExpression",
-    properties: []
-  })
-
-
-identIfString = (ast) ->
-  if typeof ast is 'string'
-    return { type: 'Identifier', name: ast }
-  if ast?.type is 'Identifier'
-    return { type: 'Identifier', name: ast.name }
-  return ast
-
-member_expr = (left, right) ->
-  assert left, 'member_expr: left is ' + left
-  assert right, 'member_expr: right is ' + right
-  return {
-    type: "MemberExpression",
-    computed: false,
-    object: identIfString(left),
-    property: identIfString(right),
-  }
-
-assignment = (left, right) ->
-  return {
-    type: "ExpressionStatement",
-    expression:
-      type: "AssignmentExpression",
-      operator: '=',
-      left: identIfString(left),
-      right: identIfString(right),
-  }
+assignment = (args...) -> util.expressionStatement(util.assignment(args...))
 
 is_variable_reference = (node, parent) ->
   assert node.type is 'Identifier'
