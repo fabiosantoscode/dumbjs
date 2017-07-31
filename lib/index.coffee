@@ -63,24 +63,6 @@ dumbifyAST = (ast, opt = {}) ->
         return estraverse.VisitorOption.Remove
       return node  # TODO check what we get first
     else if node.type in ['FunctionDeclaration']
-      node.type = 'FunctionExpression'
-      name = node.id.name
-      node.id = null
-      return {
-        "type": "VariableDeclaration",
-        "declarations": [
-          {
-            "type": "VariableDeclarator",
-            "id": {
-              "type": "Identifier",
-              "name": name
-            },
-            "init": node
-          }
-        ],
-        "kind": "var"
-      }
-      node.type = 'FunctionExpression'
       return node
     else if node.type is 'Literal'
       return node
@@ -96,8 +78,8 @@ dumbifyAST = (ast, opt = {}) ->
           if node.type is 'VariableDeclaration' and node.declarations.length isnt 1
             return declarations_to_declarators(node.declarations, node.kind)
           if node.type is 'ForStatement' and node.init?.type is 'VariableDeclaration' and node.init.declarations.length isnt 1
-            init = node.init;
-            node.init = null;
+            init = node.init
+            node.init = null
             return declarations_to_declarators(init.declarations, init.kind).concat([node])
           else
             return [node]

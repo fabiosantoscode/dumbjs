@@ -64,11 +64,6 @@ callAndCheck = (before, fn, after, opt = {}) ->
   jseq js, after
 
 describe 'core', ->
-  it 'turns function declarations into variable declarations', ->
-    compileAndCheck 'function lel () { }',
-      'var lel = function () { };',
-      { topmost: false, declosurify: false, mainify: false, }
-
   it 'turns multi-variable declarations into multiple single variable declarations', ->
     compileAndCheck 'var x, y = 6',
       'var x; var y = 6;',
@@ -105,31 +100,11 @@ describe 'core', ->
         }
       }
     ', '
-      var _flatten__x = function (_closure) { console.log(_closure.x); };
-      var a = function () {
+      function _flatten__x(_closure) { console.log(_closure.x); }
+      function a() {
         var _closure_0 = {};
         for (var _for_in_0 in y) {
           _closure_0.x = _for_in_0;
-          _flatten__x(_closure_0);
-        }
-      }
-    ', { mainify: false }
-
-  it.skip 'refrains from messing with variable declarations in fors as well', () ->
-    compileAndCheck '
-      function a() {
-        for (var x = 123;;) {
-          function _x() {
-            console.log(x)
-          }
-          _x()
-        }
-      }
-    ', '
-      var _flatten__x = function (_closure) { console.log(_closure.x); };
-      var a = function () {
-        var _closure_0 = {};
-        for (_closure_0.x = 123;;) {
           _flatten__x(_closure_0);
         }
       }
