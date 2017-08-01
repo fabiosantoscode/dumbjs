@@ -791,6 +791,27 @@ describe 'declosurify', () ->
       }
     '
 
+  it 'regression: functions in switch statements disappeared', () ->
+    code1 = esprima.parse '''
+      function x(start) {
+        function y() {
+          switch (true) {
+            case someCase: {
+              var z = 0;
+              function zee() {
+                return start;
+              }
+              return zee
+            }
+          }
+        }
+      }
+    '''
+
+    declosurify code1
+
+    console.log generate_if_needed code1
+
   it 'regression: declarations inside for loops', () ->
     code1 = esprima.parse '
       function x() {

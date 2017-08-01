@@ -28,6 +28,7 @@ clean_ast = (ast) ->
   })
 
 dumbifyAST = (ast, opt = {}) ->
+  ret = basicTransforms ast
   if opt.deregexenise isnt false
     ast = deregexenise ast
     clean_ast ast
@@ -57,7 +58,13 @@ dumbifyAST = (ast, opt = {}) ->
   if opt.bindify isnt false
     bindify ast  # mutate ast
     clean_ast ast
-  ret = estraverse.replace ast, enter: (node) ->
+  isValid = astValidator ret
+  if isValid != true
+    throw isValid
+  return ret
+
+basicTransforms = (ast) ->
+  return estraverse.replace ast, enter: (node) ->
     if node.type is 'ExpressionStatement'
       if node.expression.type is 'Literal'
         return estraverse.VisitorOption.Remove

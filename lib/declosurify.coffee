@@ -1,6 +1,7 @@
 assert = require 'assert'
 escope = require 'escope'
 estraverse = require 'estraverse'
+flatten = require 'lodash/flatten'
 tern = require 'tern/lib/infer'
 util = require './util'
 
@@ -26,13 +27,9 @@ _declosurify = (programNode, opt = {}) ->
   upper_scope = () ->
     return scope_stack[scope_stack.length - 2]
 
-  _counter = 0
-  closure_name = () ->
-    return "_closure_#{_counter++}"
+  closure_name = util.nameSluginator('_closure_')
 
-  _counter_for_in = 0
-  for_in_name = () ->
-    return "_for_in_#{_counter_for_in++}"
+  for_in_name = util.nameSluginator('_for_in_')
 
   scope_of_function = (node) ->
     scope = scopeMan.acquire(node)
@@ -98,18 +95,18 @@ _declosurify = (programNode, opt = {}) ->
 
   current_function = () -> scope_stack[scope_stack.length - 1].originNode
 
-  chain_of_scopes_using_upper_closure = (_from) ->
+  getTernScopePath = (_from) ->
     _from = _from || 2
     tern_scope = scope_stack[scope_stack.length - _from]
     # TODO below line works works but depends on mutable state.
     uses_upper_closure = tern_scope && tern_scope.originNode.params[0]?.name is '_closure'
     if uses_upper_closure
-      return [tern_scope].concat(chain_of_scopes_using_upper_closure(_from + 1))
+      return [tern_scope].concat(getTernScopePath(_from + 1))
     if tern_scope
       return [tern_scope]
     return []
 
-  to_unshift = []  # We keep notes of { func, closureName, scopesAbove } so we add var _closure_X = {} later.
+  to_unshift = []  # We keep notes of { func, closureName, ternScopePath } so we add var _closure_X = {} later.
 
   all_functions_below = (func) ->
     funcs = []
@@ -122,7 +119,7 @@ _declosurify = (programNode, opt = {}) ->
     })
     return funcs
 
-  this_function_needs_to_pass_closure = () ->
+  this_function_passes_closure = () ->
     if opt.always_create_closures
       return true
     for variable in escope_scope().variables
@@ -140,7 +137,7 @@ _declosurify = (programNode, opt = {}) ->
           )
     return false
 
-  this_function_needs_to_take_closure = () ->
+  this_function_takes_closure = () ->
     if opt.always_create_closures
       return true
     for ref in escope_scope().references
@@ -176,6 +173,22 @@ _declosurify = (programNode, opt = {}) ->
       else if identScope.name
         return util.member(identScope.name, node.name)
 
+  should_turn_ident_into_member_expression = (ident, parent) ->
+    is_ref = current_scope() && is_variable_reference(ident, parent)
+    if !is_ref
+      return false
+    its_a_function_ref = (
+      ident_refers_to_a_function(ident) &&
+      parent.id isnt ident
+    )
+    passing_a_closure = (
+      this_function_passes_closure() &&
+      scope_below_using(escope_scope(), ident.name)
+    )
+    return (
+      this_function_takes_closure() || passing_a_closure || its_a_function_ref
+    )
+
   estraverse.replace programNode,
     enter: (node, parent) ->
       if util.isFunction(node)
@@ -183,15 +196,15 @@ _declosurify = (programNode, opt = {}) ->
         scope_stack.push node.scope
         assert node.scope
 
-        if this_function_needs_to_pass_closure()
+        if this_function_passes_closure()
           node.scope.name = closure_name()
           to_unshift.push({
             func: node,
             closureName: node.scope.name,
-            scopesAbove: chain_of_scopes_using_upper_closure(),
+            ternScopePath: getTernScopePath(),
           })
 
-        if this_function_needs_to_take_closure()
+        if this_function_takes_closure()
           if parent isnt programNode &&
               opt.recursiveClosures isnt false
             node.params.unshift(util.identifier('_closure'))
@@ -206,39 +219,35 @@ _declosurify = (programNode, opt = {}) ->
       if global?.it && scope_stack.length
         # a dumb but effective way to test these functions
         if current_function().id?.name is 'immuneToGetting'
-          assert(this_function_needs_to_pass_closure(), '1')
-          assert(!this_function_needs_to_take_closure(), '2')
+          assert(this_function_passes_closure(), '1')
+          assert(!this_function_takes_closure(), '2')
         if current_function().id?.name is 'immuneToPassing'
-          assert(!this_function_needs_to_pass_closure(), '3')
-          assert(this_function_needs_to_take_closure(), '4')
+          assert(!this_function_passes_closure(), '3')
+          assert(this_function_takes_closure(), '4')
         if current_function().id?.name is 'maker'
-          assert(this_function_needs_to_pass_closure(), '7')
-          assert(!this_function_needs_to_take_closure(), '8')
+          assert(this_function_passes_closure(), '7')
+          assert(!this_function_takes_closure(), '8')
         if current_function().id?.name is 'makeriife'
-          assert(this_function_needs_to_pass_closure(), '9')
-          assert(this_function_needs_to_take_closure(), '10')
+          assert(this_function_passes_closure(), '9')
+          assert(this_function_takes_closure(), '10')
         if current_function().id?.name is 'makerreturner'
-          assert(!this_function_needs_to_pass_closure(), '11')
-          assert(this_function_needs_to_take_closure(), '12')
+          assert(!this_function_passes_closure(), '11')
+          assert(this_function_takes_closure(), '12')
         if current_function().id?.name is 'passClosureThrough'
-          assert(this_function_needs_to_pass_closure(), '13')
-          assert(this_function_needs_to_take_closure(), '14')
+          assert(this_function_passes_closure(), '13')
+          assert(this_function_takes_closure(), '14')
         if current_function().id?.name is 'passMe'
-          assert(!this_function_needs_to_pass_closure(), '15')
-          assert(this_function_needs_to_take_closure(), '16')
+          assert(!this_function_passes_closure(), '15')
+          assert(this_function_takes_closure(), '16')
         if current_function().id?.name is 'passesZee'
           assert(scope_below_using(escope_scope(), 'z'))
           assert(!scope_below_using(escope_scope(), 'y'))
 
       if node.type in ['Identifier'] &&
-          current_scope() &&
-          is_variable_reference(node, parent) &&
-          (this_function_needs_to_take_closure() || (this_function_needs_to_pass_closure() && scope_below_using(escope_scope(), node.name)) || (ident_refers_to_a_function(node) && parent.id isnt node))
+          should_turn_ident_into_member_expression(node, parent)
         return ident_to_member_expr(node)
 
-      if /(Switch|Block)Statement/.test(node.type) &&
-          this_function_needs_to_pass_closure()
-        node.closure = null
+      if util.isBlockish(node) && this_function_passes_closure()
         bod = []
         if util.isFunction(parent)
           if opt.params != false
@@ -294,27 +303,15 @@ _declosurify = (programNode, opt = {}) ->
             return decls.concat(_node)
           return _node
 
-        if node.type is 'BlockStatement'
-          bod = bod.concat node.body.map(extract_var_decls).reduce(
-            (accum, item) -> accum.concat(item),
-            []
-          )
-          return util.block bod
-        else if node.type is 'SwitchStatement'
-          for _case in node.cases
-            for _node in _case.consequent
-              _case.consequent = extract_var_decls(_node)
-          return node
-        else
-          assert false
+        return util.replaceStatements(node, extract_var_decls, { prepend: bod })
 
       return node
 
-  for { func, closureName, scopesAbove } in to_unshift
+  for { func, closureName, ternScopePath } in to_unshift
     if opt.recursiveClosures isnt false &&
-        scopesAbove.length isnt 0 &&
+        ternScopePath.length isnt 0 &&
         func.params[0]?.name is '_closure'
-      [upperClosure, otherClosures...] = scopesAbove
+      [upperClosure, otherClosures...] = ternScopePath
       otherClosures.reverse()  # just so the the assignments are in a prettier order
 
       for closure in otherClosures
