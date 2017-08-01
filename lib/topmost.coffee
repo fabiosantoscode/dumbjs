@@ -6,6 +6,24 @@ nameSluginator = util.nameSluginator
 
 # Shoves functions up, making sure there are no nested functions in the codez
 
+specificAssignee = (assignment) ->
+  if assignment.type == 'Identifier'
+    assignment.name
+  else if assignment.left.type == 'Identifier'
+    assignment.left.name
+  else if assignment.left.type == 'MemberExpression'
+    specificAssignee(assignment.left.property)
+  else
+    ''
+
+findNiceFunctionName = (func, parent) ->
+  if func.id
+    func.id.name
+  else if parent?.type is 'AssignmentExpression'
+    specificAssignee parent
+  else
+    ''
+
 module.exports = (programNode) ->
   assert(typeof programNode.body.length == 'number')
   insertFuncs = []
@@ -43,7 +61,7 @@ module.exports = (programNode) ->
               changeNames.push({ id: ref.identifier, name: newName })
           insertFuncs.push({ insert: node, into: currentIdx })
         if node.type == 'FunctionExpression'
-          variable = generateName(node.id && node.id.name)
+          variable = generateName(findNiceFunctionName(node, parent))
           insertVars.push({ insert: node, into: currentIdx, variable: variable })
 
         if /Function/.test(node.type) and node.id

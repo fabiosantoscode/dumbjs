@@ -60,7 +60,7 @@ _declosurify = (programNode, opt = {}) ->
         return true
     return scope.childScopes.some((s) -> scope_below_using(s, name, false))
 
-  functions_declared = (functionNode) ->
+  functions_declared = (functionNode, { nodes } = {}) ->
     if opt.funcs is false
       return []
     funcs = []
@@ -70,8 +70,28 @@ _declosurify = (programNode, opt = {}) ->
       enter: (node) ->
         if node is functionNode
           return
+
+        node_to_push = null
+        name_to_push = null
+
         if node.type is 'FunctionDeclaration' && node.id
-          funcs.push node.id.name
+          node_to_push = node
+          name_to_push = node.id.name
+        if node.type is 'VariableDeclaration'
+          decl = node.declarations.find (declarator) ->
+            /Function/.test declarator.init?.type
+          if decl
+            node_to_push = decl.init
+            if decl.id.type == 'MemberExpression'
+              # TODO why are there declarators with member expressions on the left?
+              name_to_push = decl.id.property.name
+            else
+              name_to_push = decl.id.name
+        if node_to_push
+          if nodes
+            funcs.push [ node_to_push, name_to_push ]
+          else
+            funcs.push name_to_push
         if /Function/.test(node.type)
           return @skip()
     })
@@ -133,6 +153,13 @@ _declosurify = (programNode, opt = {}) ->
       if through.resolved
         return true
     return false
+
+  ident_refers_to_a_function = (ident) ->
+    ref = escope_scope().resolve(ident)
+    if ref?.resolved
+      def = ref.resolved.defs.find((def) -> def.type == 'FunctionName')
+      if def
+        return true
 
   ident_to_member_expr = (node) ->
     identScope = scope_with(node.name)
@@ -207,7 +234,7 @@ _declosurify = (programNode, opt = {}) ->
       if node.type in ['Identifier'] &&
           current_scope() &&
           is_variable_reference(node, parent) &&
-          (this_function_needs_to_take_closure() || (this_function_needs_to_pass_closure() && scope_below_using(escope_scope(), node.name)))
+          (this_function_needs_to_take_closure() || (this_function_needs_to_pass_closure() && scope_below_using(escope_scope(), node.name)) || (ident_refers_to_a_function(node) && parent.id isnt node))
         return ident_to_member_expr(node)
 
       if /(Switch|Block)Statement/.test(node.type) &&
@@ -223,11 +250,10 @@ _declosurify = (programNode, opt = {}) ->
                     util.member(scope_with(param.name).name, param.name),
                     param)
           if opt.fname != false
-            for funct in functions_declared(node)
-              if scope_below_using(escope_scope(), funct)
-                bod.push assignment(
-                  util.member(current_scope().name, funct),
-                  funct)
+            for [ funct, name ] in functions_declared(parent, { nodes: true })
+              bod.push assignment(
+                util.member(current_scope().name, name),
+                name)
 
         assign_or_declare = (id, init = 'undefined') ->
           if id.type is 'MemberExpression'
@@ -240,7 +266,18 @@ _declosurify = (programNode, opt = {}) ->
           if _node.type is 'VariableDeclaration'
             declosurified = []
             for decl in _node.declarations
-              declosurified.push assign_or_declare(decl.id, decl.init)
+              if decl.init?.type isnt 'FunctionExpression'
+                declosurified.push assign_or_declare(decl.id, decl.init)
+              else if decl.init
+                if decl.id.type is 'MemberExpression'
+                  fName = decl.id.property.name
+                else
+                  fName = decl.id.name
+
+                decl.init.type = 'FunctionDeclaration'
+                decl.init.id = util.identifier(fName)
+
+                declosurified.push(decl.init)
             return declosurified
           else if _node.type is 'ForInStatement'
             forInVariableName = for_in_name()
@@ -312,6 +349,8 @@ is_variable_reference = (node, parent) ->
     )
   # Everything else is a variable reference. Probably.
   return true
+
+function_needs_closure = (funct) -> Boolean(funct.params.find((parm) -> parm.name is '_closure'))
 
 is_above = (above, scope) ->
   assert(scope, 'scope is ' + scope)

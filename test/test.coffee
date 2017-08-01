@@ -103,9 +103,10 @@ describe 'core', ->
       function _flatten__x(_closure) { console.log(_closure.x); }
       function a() {
         var _closure_0 = {};
+        _closure_0._x = BIND(_flatten__x, _closure_0);
         for (var _for_in_0 in y) {
           _closure_0.x = _for_in_0;
-          _flatten__x(_closure_0);
+          _closure_0._x();
         }
       }
     ', { mainify: false }
@@ -308,6 +309,18 @@ describe 'topmost', () ->
       x(_flatten_0);
     '
 
+  it 'generates fine names', () ->
+    code1 = esprima.parse '
+      foo.bar.baz = function () { }
+    '
+
+    topmost code1
+
+    jseq code1, '
+      var _flatten_baz = function () { };
+      foo.bar.baz = _flatten_baz;
+    '
+
   it 'regression: renames all functions, even if they contain named functions.', () ->
     # This bug is caused by using escope's scope = scope.upper to
     # return to the upper scope when inside a function. This
@@ -486,18 +499,19 @@ describe 'declosurify', () ->
       }
     '
 
-    declosurify code1, { params: false, fname: false, recursiveClosures: false }
+    declosurify code1
 
     jseq code1, '
       function x() {
         var _closure_0 = {};
+        _closure_0.y = y;
         _closure_0.foo = 5;
         _closure_0.bar = 6;
-        function y() {
-          return _closure_0.foo + _closure_0.bar;
+        function y(_closure) {
+          return _closure.foo + _closure.bar;
         }
         _closure_0.foo = 6;
-        return y;
+        return _closure_0.y;
       }
     '
 
@@ -577,10 +591,11 @@ describe 'declosurify', () ->
       function thing(x) {
         var _closure_0 = {};
         _closure_0.x = x;
+        _closure_0.y = y;
         function y(_closure) {
           return _closure.x - 1;
         }
-        return y();
+        return _closure_0.y();
       }
     '
 
@@ -655,17 +670,48 @@ describe 'declosurify', () ->
       }
     '
 
+  it 'regression: Only closurify identifiers which are references to variables (1)', () ->
+    code1 = esprima.parse '
+      function x() {
+        function EventEmitter() {
+        };
+        EventEmitter.prototype.foo = 3;
+        var defaultMaxListeners = 10;
+        var $getMaxListeners = function $getMaxListeners2(that) {
+          return EventEmitter.defaultMaxListeners;
+          return defaultMaxListeners;
+        };
+      }
+    '
+
+    declosurify code1
+    console.log generate_if_needed code1
+
+    jseq code1, '
+      function x() {
+        var _closure_0 = {};
+        _closure_0.EventEmitter = EventEmitter;
+        _closure_0.$getMaxListeners = $getMaxListeners;
+        function EventEmitter() {
+        } ;
+        _closure_0.EventEmitter.prototype.foo = 3;
+        _closure_0.defaultMaxListeners = 10;
+        function $getMaxListeners(_closure, that) {
+          return _closure.EventEmitter.defaultMaxListeners;
+          return _closure.defaultMaxListeners;
+        }
+      }
+    '
+
   it 'regression: Only closurify identifiers which are references to variables', () ->
     code1 = esprima.parse '
       function x() {
         var EventEmitter = function EventEmitter() {
         };
-        EventEmitter.EventEmitter = EventEmitter;
+        EventEmitter.prototype.foo = 3;
         var defaultMaxListeners = 10;
         var $getMaxListeners = function $getMaxListeners(that) {
-          if (that._maxListeners === undefined)
-            return EventEmitter.defaultMaxListeners;
-          return that._maxListeners;
+          return EventEmitter.defaultMaxListeners
         };
       }
     '
@@ -675,15 +721,15 @@ describe 'declosurify', () ->
     jseq code1, '
       function x() {
         var _closure_0 = {};
-        _closure_0.EventEmitter = function EventEmitter() {
-        };
-        _closure_0.EventEmitter.EventEmitter = _closure_0.EventEmitter;
+        _closure_0.EventEmitter = EventEmitter;
+        _closure_0.$getMaxListeners = $getMaxListeners;
+        function EventEmitter() {
+        }
+        _closure_0.EventEmitter.prototype.foo = 3;
         var defaultMaxListeners = 10;
-        var $getMaxListeners = function $getMaxListeners(_closure, that) {
-          if (that._maxListeners === undefined)
-            return _closure.EventEmitter.defaultMaxListeners;
-          return that._maxListeners;
-        };
+        function $getMaxListeners(_closure, that) {
+          return _closure.EventEmitter.defaultMaxListeners;
+        }
       }
     '
 
@@ -778,9 +824,9 @@ describe 'declosurify', () ->
             };
           }());
         }
-        function xaero(n) {
+        var xaero = function(n) {
           return obj;
-        }
+        };
         var obj = maker4(5);
       }
     '
@@ -788,6 +834,8 @@ describe 'declosurify', () ->
     jseq(code1, '
       function main() {
         var _closure_0 = {};
+        _closure_0.maker4 = maker4;
+        _closure_0.xaero = xaero;
         function maker4(start) {
           var _closure_1 = {};
           _closure_1.start = start;
@@ -802,7 +850,7 @@ describe 'declosurify', () ->
         function xaero(_closure, n) {
           return _closure.obj;
         }
-        _closure_0.obj = maker4(5);
+        _closure_0.obj = _closure_0.maker4(5);
       }
     ')
 
@@ -1259,8 +1307,8 @@ function a() {
 
     code = dumbjs('''
       var events = require('events')
-      arr = [ 'deepEqual' in events ]
-    ''', { deregexenise: false, topmost: false, declosurify: false })
+      arr = [ 'EventEmitter' in events ]
+    ''')
 
     fs.writeFileSync('/tmp/tmpmod.js', bindifyPrelude + code + ';main()')
     require('/tmp/tmpmod.js')
