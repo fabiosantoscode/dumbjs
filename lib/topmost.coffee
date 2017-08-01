@@ -38,13 +38,13 @@ module.exports = (programNode) ->
 
   estraverse.traverse(programNode, {
     enter: (node) ->
-      if /Function/.test(node.type)
+      if util.isFunction(node)
         scope = scopeMan.acquire(node)
         if scope.type == 'function-expression-name'
           scope = scope.childScopes[0]
         scopeStack.push(scope)
     leave: (node, parent) ->
-      if /Function/.test(node.type)
+      if util.isFunction(node)
         scopeStack.pop()
 
       if parent && parent.type == 'Program'
@@ -64,7 +64,7 @@ module.exports = (programNode) ->
           variable = generateName(findNiceFunctionName(node, parent))
           insertVars.push({ insert: node, into: currentIdx, variable: variable })
 
-        if /Function/.test(node.type) and node.id
+        if util.isFunction(node) && node.id
           functionName = node.id
           scopeInsideFunction = scopeMan.acquire(node)
           for ref in scopeInsideFunction.references

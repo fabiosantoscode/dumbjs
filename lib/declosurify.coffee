@@ -78,9 +78,8 @@ _declosurify = (programNode, opt = {}) ->
           node_to_push = node
           name_to_push = node.id.name
         if node.type is 'VariableDeclaration'
-          decl = node.declarations.find (declarator) ->
-            /Function/.test declarator.init?.type
-          if decl
+          decl = node.declarations[0]
+          if util.isFunction(decl.init)
             node_to_push = decl.init
             if decl.id.type == 'MemberExpression'
               # TODO why are there declarators with member expressions on the left?
@@ -92,7 +91,7 @@ _declosurify = (programNode, opt = {}) ->
             funcs.push [ node_to_push, name_to_push ]
           else
             funcs.push name_to_push
-        if /Function/.test(node.type)
+        if util.isFunction(node)
           return @skip()
     })
     return funcs
@@ -118,7 +117,7 @@ _declosurify = (programNode, opt = {}) ->
       enter: (node) ->
         if node is func
           return
-        if node.type in ['FunctionDeclaration', 'FunctionExpression']
+        if util.isFunction(node)
           funcs.push node
     })
     return funcs
@@ -129,7 +128,7 @@ _declosurify = (programNode, opt = {}) ->
     for variable in escope_scope().variables
       if variable.stack is false
         return true
-    if /Function/.test(escope_scope().block?.type)
+    if util.isFunction(escope_scope().block)
       funcs_below = all_functions_below(escope_scope().block)
       if funcs_below.length
         throughs = escope_scope().through.map((through) -> through.resolved)
@@ -179,7 +178,7 @@ _declosurify = (programNode, opt = {}) ->
 
   estraverse.replace programNode,
     enter: (node, parent) ->
-      if node.type in ['FunctionDeclaration', 'FunctionExpression']
+      if util.isFunction(node)
         escope_scope_stack.push(scope_of_function(node))
         scope_stack.push node.scope
         assert node.scope
@@ -199,7 +198,7 @@ _declosurify = (programNode, opt = {}) ->
 
       return node
     leave: (node, parent) ->
-      if node.type in ['FunctionDeclaration', 'FunctionExpression']
+      if util.isFunction(node)
         escope_scope_stack.pop()
         scope_stack.pop()
         return
@@ -241,7 +240,7 @@ _declosurify = (programNode, opt = {}) ->
           this_function_needs_to_pass_closure()
         node.closure = null
         bod = []
-        if parent.type in ['FunctionDeclaration', 'FunctionExpression']
+        if util.isFunction(parent)
           if opt.params != false
             for param in parent.params
               if scope_below_using(escope_scope(), param.name)
@@ -338,7 +337,7 @@ assignment = (args...) -> util.expressionStatement(util.assignment(args...))
 
 is_variable_reference = (node, parent) ->
   assert node.type is 'Identifier'
-  if /Function/.test parent.type
+  if util.isFunction parent
     # I'm the argument or name of a function
     return false
   if parent.type is 'MemberExpression'
