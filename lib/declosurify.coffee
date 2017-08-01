@@ -29,8 +29,6 @@ _declosurify = (programNode, opt = {}) ->
 
   closure_name = util.nameSluginator('_closure_')
 
-  for_in_name = util.nameSluginator('_for_in_')
-
   scope_of_function = (node) ->
     scope = scopeMan.acquire(node)
     if scope.type is 'function-expression-name'
@@ -174,19 +172,24 @@ _declosurify = (programNode, opt = {}) ->
         return util.member(identScope.name, node.name)
 
   should_turn_ident_into_member_expression = (ident, parent) ->
-    is_ref = current_scope() && is_variable_reference(ident, parent)
+    is_ref = current_scope() && util.isVariableReference(ident, parent)
     if !is_ref
       return false
-    its_a_function_ref = (
-      ident_refers_to_a_function(ident) &&
-      parent.id isnt ident
+    is_for_in_variable = (
+      ident.name.startsWith('_for_in_')
     )
-    passing_a_closure = (
+    if is_for_in_variable
+      return false
+    shared_with_lower_scope = (
       this_function_passes_closure() &&
       scope_below_using(escope_scope(), ident.name)
     )
+    is_func_ref = (
+      ident_refers_to_a_function(ident) &&
+      parent.id isnt ident
+    )
     return (
-      this_function_takes_closure() || passing_a_closure || its_a_function_ref
+      this_function_takes_closure() || shared_with_lower_scope || is_func_ref
     )
 
   estraverse.replace programNode,
@@ -215,33 +218,6 @@ _declosurify = (programNode, opt = {}) ->
         escope_scope_stack.pop()
         scope_stack.pop()
         return
-
-      if global?.it && scope_stack.length
-        # a dumb but effective way to test these functions
-        if current_function().id?.name is 'immuneToGetting'
-          assert(this_function_passes_closure(), '1')
-          assert(!this_function_takes_closure(), '2')
-        if current_function().id?.name is 'immuneToPassing'
-          assert(!this_function_passes_closure(), '3')
-          assert(this_function_takes_closure(), '4')
-        if current_function().id?.name is 'maker'
-          assert(this_function_passes_closure(), '7')
-          assert(!this_function_takes_closure(), '8')
-        if current_function().id?.name is 'makeriife'
-          assert(this_function_passes_closure(), '9')
-          assert(this_function_takes_closure(), '10')
-        if current_function().id?.name is 'makerreturner'
-          assert(!this_function_passes_closure(), '11')
-          assert(this_function_takes_closure(), '12')
-        if current_function().id?.name is 'passClosureThrough'
-          assert(this_function_passes_closure(), '13')
-          assert(this_function_takes_closure(), '14')
-        if current_function().id?.name is 'passMe'
-          assert(!this_function_passes_closure(), '15')
-          assert(this_function_takes_closure(), '16')
-        if current_function().id?.name is 'passesZee'
-          assert(scope_below_using(escope_scope(), 'z'))
-          assert(!scope_below_using(escope_scope(), 'y'))
 
       if node.type in ['Identifier'] &&
           should_turn_ident_into_member_expression(node, parent)
@@ -273,34 +249,19 @@ _declosurify = (programNode, opt = {}) ->
         extract_var_decls = (_node) ->
           if _node.type is 'VariableDeclaration'
             declosurified = []
-            for decl in _node.declarations
-              if decl.init?.type isnt 'FunctionExpression'
-                declosurified.push assign_or_declare(decl.id, decl.init)
-              else if decl.init
-                if decl.id.type is 'MemberExpression'
-                  fName = decl.id.property.name
-                else
-                  fName = decl.id.name
+            decl = _node.declarations[0]
+            if decl.init?.type isnt 'FunctionExpression'
+              return assign_or_declare(decl.id, decl.init)
+            else if decl.init
+              if decl.id.type is 'MemberExpression'
+                fName = decl.id.property.name
+              else
+                fName = decl.id.name
 
-                decl.init.type = 'FunctionDeclaration'
-                decl.init.id = util.identifier(fName)
+              decl.init.type = 'FunctionDeclaration'
+              decl.init.id = util.identifier(fName)
 
-                declosurified.push(decl.init)
-            return declosurified
-          else if _node.type is 'ForInStatement'
-            forInVariableName = for_in_name()
-            for decl in _node.left.declarations
-              _node.body.body.unshift assignment(
-                decl.id,
-                forInVariableName
-              )
-              decl.id = util.identifierIfString(forInVariableName)
-            return _node
-          else if _node.type is 'ForStatement' && _node.init?.type is 'VariableDeclaration'
-            decls = _node.init.declarations.map (decl) ->
-              assign_or_declare(decl.id, decl.init || util.identifierIfString("undefined"))
-            _node.init = null
-            return decls.concat(_node)
+              return decl.init
           return _node
 
         return util.replaceStatements(node, extract_var_decls, { prepend: bod })
@@ -331,20 +292,6 @@ _declosurify = (programNode, opt = {}) ->
     )
 
 assignment = (args...) -> util.expressionStatement(util.assignment(args...))
-
-is_variable_reference = (node, parent) ->
-  assert node.type is 'Identifier'
-  if util.isFunction parent
-    # I'm the argument or name of a function
-    return false
-  if parent.type is 'MemberExpression'
-    # Not all identifiers in MemberExpression s are variables, only when:
-    return (
-      parent.object is node or  # - identifier is the leftmost in the membex
-      (parent.computed and parent.property is node)  # - identifier is in square brackets ( foo[x] )
-    )
-  # Everything else is a variable reference. Probably.
-  return true
 
 function_needs_closure = (funct) -> Boolean(funct.params.find((parm) -> parm.name is '_closure'))
 

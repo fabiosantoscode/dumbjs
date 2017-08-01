@@ -7,6 +7,7 @@ esprima = require 'esprima'
 escodegen = require 'escodegen'
 
 dumbjs = require '../lib'
+basicTransforms = require '../lib/basic-transforms'
 requireObliteratinator = require '../lib/require-obliteratinator'
 typeConversions = require '../lib/type-conversions'
 topmost = require '../lib/topmost'
@@ -63,33 +64,40 @@ callAndCheck = (before, fn, after, opt = {}) ->
     .replace /\}, \{\} ] \}, \{\}, \[.+/, ''
   jseq js, after
 
-describe 'core', ->
+test = (
+  before,
+  fn,
+  after,
+) ->
+  code1 = parse_if_needed before
+  ret = fn code1
+  if !ret
+    ret = code1  # it mutated!
+  jseq ret, after
+
+describe 'basic transforms', ->
   it 'turns multi-variable declarations into multiple single variable declarations', ->
-    compileAndCheck 'var x, y = 6',
-      'var x; var y = 6;',
-      { topmost: false, declosurify: false, mainify: false, }
+    test(
+      'var x, y = 6',
+      basicTransforms,
+      'var x; var y = 6'
+    )
 
-    compileAndCheck 'for (var x, y = 6;;){}',
-      'var x; var y = 6; for (;;) { }',
-      { topmost: false, declosurify: false, mainify: false, }
+  it 'removes variables from for loops', () ->
+    test(
+      'for (var x, y = 6;;){}'
+      basicTransforms,
+      'var x; var y = 6; for (;;) { }'
+    )
 
-  it 'removes "use strict" because it\'s always strict', ->
-    compileAndCheck '
-      "use strict";
-      (function() {
-        "use strict"
-      }());
-      ',
-      '(function () { }());',
-      { topmost: false, declosurify: false, mainify: false, }
+  it 'removes variables from for..in loops', () ->
+    test(
+      'for (var x in y) { x(); }',
+      basicTransforms,
+      'for (var _for_in_0 in y) { var x = _for_in_0; x(); }'
+    )
 
   it 'can pass for..in statements through', () ->
-    compileAndCheck '
-      for (var x in y) {}
-    ', '
-      for (var x in  y) { }
-    ', { mainify: false }
-
     compileAndCheck '
       function a() {
         for (var x in y) {
@@ -489,8 +497,8 @@ describe 'declosurify', () ->
   it 'creates objects for closures, turns every reference into an object access', () ->
     code1 = esprima.parse '
       function x() {
-        var foo = 5,
-            bar = 6;
+        var foo = 5;
+        var bar = 6;
         function y() {
           return foo + bar;
         }
@@ -685,7 +693,6 @@ describe 'declosurify', () ->
     '
 
     declosurify code1
-    console.log generate_if_needed code1
 
     jseq code1, '
       function x() {
@@ -810,30 +817,7 @@ describe 'declosurify', () ->
 
     declosurify code1
 
-    console.log generate_if_needed code1
-
-  it 'regression: declarations inside for loops', () ->
-    code1 = esprima.parse '
-      function x() {
-        for (var y = 0; i < 10; i++) {
-        }
-        for (var z, t = 6; i < 10; i++) {
-        }
-      }
-    '
-    declosurify code1, { fname: false, params: false, always_create_closures: true }
-    jseq(code1, '
-      function x() {
-        var _closure_0 = {};
-        _closure_0.y = 0;
-        for (; i < 10; i++) {
-        }
-        _closure_0.z = undefined;
-        _closure_0.t = 6;
-        for (; i < 10; i++) {
-        }
-      }
-    ')
+    ok /function zee/.test escodegen.generate code1
 
   it 'regression: if closures aren\'t continuously needed up to the root, don\'t try to access them', () ->
     code1 = esprima.parse '
@@ -1308,17 +1292,17 @@ describe 'functional tests', () ->
 
   it 'regression: closure membex found in for() init section', () ->
     code = dumbjs('''
-function a() {
-  var b = function() {
-    switch (0) {
-      default:
-        for (var i = 1;;) {
-        }
-    }
+      function a() {
+        var b = function() {
+          switch (0) {
+            default:
+              for (var i = 1;i<10;i++) {
+              }
+          }
 
-    (function(){ return i })();
-  };
-};
+          (function(){ return i })();
+        };
+      };
     ''')
 
     eval(bindifyPrelude + code + ';main()')
