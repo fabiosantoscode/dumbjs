@@ -1,13 +1,13 @@
 fs = require 'fs'
 assert = require 'assert'
 escope = require 'escope'
-esprima = require 'esprima'
 escodegen = require 'escodegen'
 estraverse = require 'estraverse'
 child_process = require 'child_process'
 
 astValidator = require '../vendor/js-ast-validator/check-ast'
 
+parse = require './parse'
 basicTransforms = require './basic-transforms'
 requireObliteratinator = require './require-obliteratinator'
 typeConversions = require './type-conversions'
@@ -67,18 +67,9 @@ dumbifyAST = (ast, opt = {}) ->
     throw isValid
   return ast
 
-esprimaOpts = () -> {
-  sourceType: 'module',
-  ecmaVersion: 6,
-  allowReturnOutsideFunction: true,
-  allowHashBang: true,
-  locations: true,
-  attachComment: true,
-}
-
 dumbify = (js, opt = {}) ->
   mayContainRequire = /require\s*?\(/m.test js
-  ast = esprima.parse(js, esprimaOpts())
+  ast = parse(js, opt.filename)
   if mayContainRequire is false
     opt.requireObliteratinator = false
   ast = dumbifyAST ast, opt

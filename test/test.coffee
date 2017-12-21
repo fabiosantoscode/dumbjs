@@ -2,9 +2,10 @@ fs = require 'fs'
 es = require 'event-stream'
 ok = require 'assert'
 
-estraverse = require 'estraverse'
 esprima = require 'esprima'
 escodegen = require 'escodegen'
+
+{ jseq, noWs, test, parse_if_needed } = require('./utils')
 
 dumbjs = require '../lib'
 basicTransforms = require '../lib/basic-transforms'
@@ -22,58 +23,15 @@ util = require '../lib/util'
 
 util.enableTestMode()
 
-clean_ast = (ast) ->
-  estraverse.traverse(ast, {
-    leave: (node) ->
-      delete node.scope
-      delete node.objType
-  })
-  return ast
-
-generate_if_needed = (s) ->
-  if typeof s is 'string'
-    s
-  else
-    escodegen.generate(s)
-
-parse_if_needed = (s) ->
-  if typeof s is 'string'
-    esprima.parse(s)
-  else
-    s
-
-no_ws = (s) ->
-  s.replace(/(\s|\n)+/gm, ' ').replace(/\s*;\s*$/,'').trim()
-jseq = (a, b, msg) ->
-  try
-    s_a = no_ws(generate_if_needed(a))
-    s_b = no_ws(generate_if_needed(b))
-  catch e
-    ok.deepEqual(clean_ast(parse_if_needed(a)), clean_ast(parse_if_needed(b)), msg)
-    ok false
-    return
-  ok.equal(s_a, s_b, msg)
-
 compileAndCheck = (before, after, opt = {}) ->
   callAndCheck(before, dumbjs, after, opt)
 
 callAndCheck = (before, fn, after, opt = {}) ->
   js = fn(before, opt)
-  js = no_ws(js)
+  js = noWs(js)
     .replace /.+function \(require, module, exports\) \{/, ''
     .replace /\}, \{\} ] \}, \{\}, \[.+/, ''
   jseq js, after
-
-test = (
-  before,
-  fn,
-  after,
-) ->
-  code1 = parse_if_needed before
-  ret = fn code1
-  if !ret
-    ret = code1  # it mutated!
-  jseq ret, after
 
 describe 'basic transforms', ->
   it 'turns multi-variable declarations into multiple single variable declarations', ->
@@ -1026,9 +984,11 @@ describe 'requireObliteratinator', () ->
 
     jseq code1, "
       var _was_module_initialised_themodule = false;
-      var _module_themodule;
+      var _module_themodule = {};
       function _initmodule_themodule() {
         var module = {};
+        var exports = _module_themodule;
+        module.exports = _module_themodule;
         var __filename = '/path/to/the-module.js';
         var __dirname = '/path/to';
         foobarbaz();
