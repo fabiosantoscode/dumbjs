@@ -1,5 +1,3 @@
 
-function xfoo() { return 'xfoo'; }
-
-module.exports = xfoo
+exports.xfoo = function xfoo() { return 'xfoo'; }
 

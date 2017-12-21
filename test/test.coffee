@@ -977,7 +977,7 @@ describe 'requireObliteratinator', () ->
   it 'turns modules into functions that return modules', () ->
     code1 = esprima.parse '
       foobarbaz();
-      module.exports = 3;
+      exports.exported = 3;
     '
 
     requireObliteratinator(code1, { filename: '/path/to/the-module.js', isMain: false })
@@ -986,14 +986,13 @@ describe 'requireObliteratinator', () ->
       var _was_module_initialised_themodule = false;
       var _module_themodule = {};
       function _initmodule_themodule() {
-        var module = {};
+        var module = { exports: _module_themodule };
         var exports = _module_themodule;
-        module.exports = _module_themodule;
         var __filename = '/path/to/the-module.js';
         var __dirname = '/path/to';
         foobarbaz();
-        module.exports = 3;
-        return module.exports;
+        exports.exported = 3;
+        return _module_themodule;
       }
       function _require_themodule() {
         if (_was_module_initialised_themodule) {
@@ -1178,7 +1177,7 @@ describe 'functional tests', () ->
     XFOO = null
     code = dumbjs 'XFOO=require("./some.js");', { filename: __filename }  # actual file in this directory
     eval(bindifyPrelude + code + '\nmain()')
-    ok.equal XFOO(), 'xfoo'
+    ok.equal XFOO.xfoo(), 'xfoo'
 
   it 'regression: ownfunction works without mainify as well', () ->
     execd = []
