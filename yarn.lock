@@ -386,10 +386,10 @@ esrecurse@^4.1.0:
   dependencies:
     estraverse "^4.1.0"
 
-estraverse@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/estraverse/-/estraverse-2.0.0.tgz#5ae46963243600206674ccb24a09e16674fcdca1"
-  integrity sha1-WuRpYyQ2ACBmdMyySgnhZnT83KE=
+estraverse@^3:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/estraverse/-/estraverse-3.1.0.tgz#15e28a446b8b82bc700ccc8b96c78af4da0d6cba"
+  integrity sha1-FeKKRGuLgrxwDMyLlseK9NoNbLo=
 
 estraverse@^4.1.0, estraverse@^4.1.1, estraverse@^4.2.0:
   version "4.2.0"
