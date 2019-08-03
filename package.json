@@ -16,12 +16,12 @@
     "estraverse": "^4.2.0",
     "event-stream": "^4.0.1",
     "jsonpretty": "^0.0.1",
-    "lodash": "^4.17.4",
-    "module-deps": "^3.9.1",
+    "lodash": "^4.17.15",
+    "module-deps": "^6.2.1",
     "parse-error": "^0.2.0",
-    "resolve": "^1.1.6",
+    "resolve": "^1.12.0",
     "tern": "^0.24.1",
-    "underscore": "^1.8.3"
+    "underscore": "^1.9.1"
   },
   "devDependencies": {
     "mocha": "^6.2.0"
