@@ -27,11 +27,11 @@ There are currently no command line options :(
 
 # API docs
 
-## `require('dumbify')(javascriptCode, [options])`
+## `require('dumbjs')(javascriptCode, [options])`
 
 Dumbify a javascript string and return the resulting javascript code as a string.
 
-## `require('dumbify').dumbifyAST(javascriptAST, [options])`
+## `require('dumbjs').dumbifyAST(javascriptAST, [options])`
 
 Dumbify a parsed javascript AST as returned by `esprima`, `acorn` or whatever parser you prefer.
 
