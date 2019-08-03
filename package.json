@@ -21,7 +21,7 @@
     "module-deps": "^3.9.1",
     "parse-error": "^0.2.0",
     "resolve": "^1.1.6",
-    "tern": "^0.15.0",
+    "tern": "^0.24.1",
     "underscore": "^1.8.3"
   },
   "devDependencies": {
