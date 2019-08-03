@@ -10,7 +10,7 @@
   "author": "",
   "license": "WTFPL",
   "dependencies": {
-    "coffeescript": "^2.4.1",
+    "coffeescript": "^1.12.7",
     "escodegen": "^1.11.1",
     "escope": "^3.6.0",
     "esprima": "^2.7.3",
