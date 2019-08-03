@@ -3,6 +3,7 @@
   "version": "1.5.0",
   "description": "",
   "main": "lib/index.coffee",
+  "bin": "./bin/dumbjs.js",
   "scripts": {
     "test": "mocha --require coffeescript/register \"test/*.{js,coffee}\""
   },

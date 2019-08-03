@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-require('coffee-script/register')
+require('coffeescript/register')
 
 var es = require('event-stream')
 var dumbjs = require('../lib')
