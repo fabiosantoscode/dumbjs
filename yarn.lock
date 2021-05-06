@@ -292,6 +292,10 @@ lodash.memoize@~3.0.3:
   version "3.0.4"
   resolved "https://registry.yarnpkg.com/lodash.memoize/-/lodash.memoize-3.0.4.tgz#2dcbd2c287cbc0a55cc42328bd0c736150d53e3f"
 
+lodash@^4.17.4:
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
+
 lru-cache@2:
   version "2.7.3"
   resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-2.7.3.tgz#6d4524e8b955f95d4f5b58851ce21dd72fb4e952"
@@ -390,6 +394,10 @@ parents@^1.0.0:
   resolved "https://registry.yarnpkg.com/parents/-/parents-1.0.1.tgz#fedd4d2bf193a77745fe71e371d73c3307d9c751"
   dependencies:
     path-platform "~0.11.15"
+
+parse-error@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/parse-error/-/parse-error-0.2.0.tgz#a236d5076cbe196c15781b892b20d0b69759ff5b"
 
 path-parse@^1.0.5:
   version "1.0.5"
